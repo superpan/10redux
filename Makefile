@@ -12,16 +12,21 @@ PORT   ?= 8765
 
 ##@ Setup
 
-install: ## Install Python deps via uv (PyTorch from cu128 index, aarch64-friendly)
+install: ## Install Python deps via uv (PyTorch from cu129 index, aarch64-friendly)
 	uv sync
 
-ui-install: ## Install JS deps for the React frontend
-	cd ui && npm install
+ui-install: ## Install JS deps for the Next.js frontend (pnpm via corepack)
+	cd ui && pnpm install
 
 ffmpeg: ## Install ffmpeg via apt (asks for sudo password)
 	sudo apt install -y ffmpeg
 
-bootstrap: install ui-install ## One-shot: Python deps + UI deps
+install-pc: ## Install latest process-compose to ~/.local/bin (official installer)
+	mkdir -p $$HOME/.local/bin
+	sh -c "$$(curl --location https://raw.githubusercontent.com/F1bonacc1/process-compose/main/scripts/get-pc.sh)" -- -d -b $$HOME/.local/bin
+	@echo "ensure ~/.local/bin is on PATH"
+
+bootstrap: install ui-install install-pc ## One-shot: Python + UI + process-compose
 
 ##@ Services
 
@@ -72,23 +77,23 @@ status: ## Print resolved config and Qdrant stats
 
 ##@ Run
 
-serve: ## Run FastAPI on :$(PORT). Auto-mounts ui/dist if built.
+serve: ## Run FastAPI on :$(PORT). Auto-mounts ui/out (Next export) if built.
 	uv run ten serve --port $(PORT)
 
 serve-reload: ## Same as `serve` but reloads on Python changes
 	uv run ten serve --port $(PORT) --reload
 
-ui-build: ## Build the React UI into ui/dist (served by `make serve`)
-	cd ui && npm run build
+ui-build: ## Build the Next.js UI into ui/out (served by `make serve`)
+	cd ui && pnpm build
 
-ui-dev: ## Run the Vite dev server on :5173, proxying /search etc to :$(PORT)
-	cd ui && npm run dev
+ui-dev: ## Run the Next.js dev server on :3000, proxying /search etc to :$(PORT)
+	cd ui && TEN_API=http://127.0.0.1:$(PORT) pnpm dev
 
-dev: ## Tip: open two terminals -> `make serve-reload` and `make ui-dev`
-	@echo 'Open two terminals:'
-	@echo '  T1:  make serve-reload'
-	@echo '  T2:  make ui-dev'
-	@echo 'Then browse http://127.0.0.1:5173'
+dev: ## TUI dev session: api in process-compose. Run `make qdrant-up` first.
+	process-compose up api
+
+dev-ui: ## TUI dev session: api + Next.js dev server. UI on http://127.0.0.1:3000
+	process-compose up api ui
 
 ##@ Maintenance
 
@@ -113,9 +118,9 @@ help: ## Show this help
 		/^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2 } \
 		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) }' $(MAKEFILE_LIST)
 
-.PHONY: install ui-install ffmpeg bootstrap \
+.PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
         fetch-smoke \
         index index-vllm reindex smoke search status \
-        serve serve-reload ui-build ui-dev dev \
+        serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

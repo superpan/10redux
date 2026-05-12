@@ -1,0 +1,28 @@
+# process-compose — host-process orchestration for local dev.
+#
+#   make dev      # api only  (assumes `make qdrant-up` was run already)
+#   make dev-ui   # api + Next.js dev server
+#
+# Containers (Qdrant, optional vLLM) live in docker-compose.yml and are managed
+# separately — start them once per machine boot with `make qdrant-up`.
+#
+# SIGINT (2) is used for shutdown because Python servers (uvicorn) handle it
+# cleanly; SIGTERM with --reload leaves stray workers.
+
+version: "0.5"
+
+processes:
+  api:
+    command: make serve
+    is_dotenv_disabled: true
+    shutdown:
+      signal: 2
+      timeout_seconds: 10
+
+  ui:
+    command: make ui-dev
+    is_dotenv_disabled: true
+    disabled: true
+    shutdown:
+      signal: 2
+      timeout_seconds: 5

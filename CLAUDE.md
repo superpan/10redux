@@ -21,7 +21,7 @@
 | Ingest orchestrator | PyAV chunking → batched embed → upsert | `src/ten/ingest.py` |
 | HTTP API + Range stream | FastAPI | `src/ten/api.py` |
 | CLI | typer, entry point `ten` | `src/ten/cli.py` |
-| Frontend | React (Vite) | `ui/` |
+| Frontend | Next.js 15 App Router (static export) | `ui/` |
 
 ## Captioner backends
 
@@ -45,19 +45,41 @@ When adding a new backend, implement `CaptionerProtocol` and register it in `mak
 The **Makefile** is the canonical task runner — it's the single place workflows are codified. Run `make help` for the full menu.
 
 ```bash
-make bootstrap                                # uv sync + npm install
-make qdrant-up                                # start Qdrant
+make bootstrap                                # uv sync + pnpm install + install-pc
+make qdrant-up                                # start Qdrant (one-shot per machine boot)
 make vllm-up                                  # optional: start vLLM (profile=vllm)
 make index FOLDER=/path/to/videos             # ingest (resumable)
 make index-vllm FOLDER=/path/to/videos        # same, but via vLLM backend
 make search Q="a person catching a ball"      # CLI search
-make serve                                    # FastAPI on :8765 (auto-mounts ui/dist)
-make serve-reload                             # serve with --reload
-make ui-build                                 # build React UI into ui/dist
-make ui-dev                                   # Vite dev server on :5173, proxies /search etc
+make serve                                    # FastAPI on :8765 (auto-mounts ui/out)
+make serve-reload                             # serve with --reload (use directly, NOT in process-compose)
+make ui-build                                 # build Next.js UI into ui/out
+make ui-dev                                   # Next.js dev server on :3000, proxies /search etc
+make dev                                      # process-compose TUI: api only
+make dev-ui                                   # process-compose TUI: api + ui (UI on :3000)
 make status                                   # print resolved config + qdrant stats
 make lint   |   make format                   # ruff
 ```
+
+## Local dev orchestration
+
+`process-compose.yaml` runs **host processes only** (api, ui). Containers
+(Qdrant, vLLM) live in `docker-compose.yml` and are managed independently.
+
+Typical loop:
+
+```bash
+make qdrant-up           # once per boot — Qdrant stays up across dev sessions
+make dev-ui              # TUI with api + Next dev server. Ctrl-C tears them down.
+```
+
+Conventions: every process invokes a `make` target (one canonical way to
+run a service), `is_dotenv_disabled: true` so process-compose doesn't
+auto-load `.env` into children, and `signal: 2` (SIGINT) for shutdown.
+**Don't switch to SIGTERM** — uvicorn workers leak with SIGTERM under
+`--reload`. The process-compose `api` deliberately omits `--reload` for the
+same reason; for backend hot-reload, run `make serve-reload` in another
+terminal instead.
 
 When adding a new blessed workflow (new service, new ingest mode, new maintenance task), add a Makefile target with a `## description` doc-comment so it shows up in `make help`. Keep the section comments (`##@ Section`) in sync.
 
@@ -72,4 +94,5 @@ The raw `uv run ten ...` and `docker compose ...` commands still work — Makefi
 - **Qdrant URL** defaults to `http://localhost:6333`. If `ten status` shows "Connection refused", the user hasn't started Docker yet.
 - **`AutoVideoProcessor` import** in `embed_video.py` is from `transformers` ≥ 4.49. If transformers is downgraded for any reason, V-JEPA 2 won't load.
 - **vLLM image** on DGX Spark: `vllm/vllm-openai:latest` may lag sm_100 (Blackwell) support. Fallback is NVIDIA's NGC build (`nvcr.io/nvidia/vllm:25.04-py3` or newer).
-- The Vite proxy whitelist (`ui/vite.config.js`) must mirror the FastAPI route prefixes. When adding a new endpoint family, add it to the proxy too.
+- The Next.js dev rewrites (`ui/next.config.mjs`) must mirror the FastAPI route prefixes. When adding a new endpoint family, add it to the `rewrites()` array too.
+- UI is **static-export Next.js** (`output: 'export'`). All pages must be client components if they use state/effects (`"use client"` directive). Don't add server actions, route handlers in `app/api/`, or middleware — they'd require a Node runtime in prod and we want a single-process FastAPI deployment. `next build` writes to `ui/out/`, which `api.py` mounts.
