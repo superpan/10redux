@@ -6,7 +6,7 @@ Open-weight video search for large libraries.
 - **Captions / summaries:** [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) (256K context, hours-long video)
 - **Caption embeddings:** [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
 - **Vector index:** Qdrant (two collections, RRF-fused at query time)
-- **API + UI:** FastAPI + React (Vite)
+- **API + UI:** FastAPI + Next.js 15 (App Router, static export)
 - **CLI:** `ten`
 
 ## How it works
@@ -30,7 +30,7 @@ The two-collection layout means you don't need a text-aligned video encoder — 
 - `ffmpeg` on PATH (`sudo apt install ffmpeg`)
 - Docker (for Qdrant) — or point `TEN_QDRANT_URL` at any Qdrant instance.
 - Python 3.12 + [uv](https://docs.astral.sh/uv/)
-- Node 20+ for the UI
+- Node 20+ with corepack enabled (`corepack enable`) — uses `pnpm` (pinned via `packageManager` in `ui/package.json`)
 
 ## Setup & use
 
@@ -56,14 +56,14 @@ make vllm-up
 make index-vllm FOLDER=/path/to/videos
 ```
 
-For frontend hot-reload, run the API and the Vite dev server in two terminals:
+For local dev with both api + UI in one TUI (single Ctrl-C teardown, color-coded interleaved logs), use process-compose:
 
 ```bash
-make serve-reload    # terminal 1
-make ui-dev          # terminal 2  -> http://127.0.0.1:5173
+make qdrant-up    # once per boot
+make dev-ui       # api + Next.js dev server  ->  http://127.0.0.1:3000
 ```
 
-Direct CLI usage (`uv run ten ...`) still works — see `make help` and `uv run ten --help` for the full surface.
+`make dev` (api only) is also there if you don't need UI hot-reload. Direct CLI usage (`uv run ten ...`, `make serve`, `make ui-dev`) still works — see `make help` and `uv run ten --help` for the full surface.
 
 ## Captioner backends
 

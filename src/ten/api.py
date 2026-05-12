@@ -202,6 +202,11 @@ def _range_response(path: Path, request: Request) -> Response:
 
 
 # Serve the built React frontend if present (mounted last so /api routes win).
-_ui_dist = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
-if _ui_dist.exists():
-    app.mount("/", StaticFiles(directory=_ui_dist, html=True), name="ui")
+# Next.js static export goes to ui/out (not ui/dist). Keep the dist fallback for
+# anyone still on the old Vite build.
+_repo_root = Path(__file__).resolve().parent.parent.parent
+for _candidate in ("out", "dist"):
+    _ui_dir = _repo_root / "ui" / _candidate
+    if _ui_dir.exists():
+        app.mount("/", StaticFiles(directory=_ui_dir, html=True), name="ui")
+        break
