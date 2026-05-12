@@ -1,0 +1,77 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --panel: #14181d;
+  --border: #232a31;
+  --text: #e6edf3;
+  --muted: #8b96a3;
+  --accent: #8ab4ff;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+header h1 { font-size: 20px; margin: 0; letter-spacing: 0.5px; }
+header .stats { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+.search {
+  display: flex; gap: 8px; margin-bottom: 24px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px;
+}
+.search input {
+  flex: 1; background: transparent; border: 0; color: var(--text); font-size: 16px; outline: none;
+  padding: 8px 12px;
+}
+.search button {
+  background: var(--accent); color: #0b0d10; border: 0; border-radius: 6px; padding: 8px 16px;
+  font-weight: 600; cursor: pointer;
+}
+.search button:disabled { opacity: 0.5; cursor: wait; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.card .thumb { width: 100%; aspect-ratio: 16/9; background: #000; object-fit: cover; cursor: pointer; }
+.card .body { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.card .meta { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
+.card .meta .src { background: #1f2630; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+.card .name { font-size: 13px; word-break: break-all; }
+.card .caption { color: var(--text); font-size: 13px; }
+.card .actions { display: flex; gap: 8px; margin-top: 4px; }
+.card .actions button {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+}
+.card .actions button:hover { background: #1c2128; }
+.card .summary {
+  margin-top: 6px; padding: 8px; background: #0e1217; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 12px; line-height: 1.5;
+}
+.card .summary.loading { color: var(--muted); }
+
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal {
+  width: 90vw; max-width: 1100px; background: #000; border-radius: 8px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal video { width: 100%; max-height: 80vh; background: #000; }
+.modal .close {
+  position: absolute; top: 16px; right: 24px; background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+
+.empty { color: var(--muted); padding: 40px; text-align: center; }

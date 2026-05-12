@@ -1,0 +1,53 @@
+[project]
+name = "ten"
+version = "0.1.0"
+description = "Open-weight video search over large libraries: V-JEPA 2 + Qwen3-VL + Qdrant"
+authors = [
+    { name = "Lei Pan", email = "superpan@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.7",
+    "torchvision",
+    "transformers>=4.49",
+    "accelerate",
+    "qwen-vl-utils",
+    "av",
+    "pillow",
+    "numpy",
+    "qdrant-client>=1.12",
+    "fastapi",
+    "uvicorn[standard]",
+    "typer>=0.12",
+    "rich",
+    "tqdm",
+    "httpx",
+    "pydantic>=2",
+    "python-multipart",
+    "sentence-transformers>=3",
+]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+
+[project.scripts]
+ten = "ten.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+# DGX Spark / Grace Blackwell aarch64: pull torch from the CUDA 12.8 index,
+# which publishes aarch64 wheels compatible with CUDA 13 driver.
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Project
+.ten/
+data/
+qdrant_storage/
+*.log
+
+# Frontend
+node_modules/
+ui/dist/
+
+# Editors / OS
+.DS_Store
+.env
+.idea/
+.vscode/
+
+# Claude Code per-user settings (CLAUDE.md and AGENT.md are tracked)
+.claude/settings.local.json

@@ -1,0 +1,42 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  # Optional: high-throughput captioning backend.
+  # Enable with `docker compose --profile vllm up -d`.
+  # NOTE on DGX Spark (aarch64 + Blackwell sm_100): vllm/vllm-openai publishes
+  # multi-arch builds, but if a tag fails to start with an "unsupported arch"
+  # or sm_100 error, switch to NVIDIA's NGC container:
+  #   nvcr.io/nvidia/vllm:25.04-py3   (or newer)
+  vllm:
+    profiles: ["vllm"]
+    image: vllm/vllm-openai:latest
+    ports:
+      - "8000:8000"
+    ipc: host
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+    command:
+      - --model=Qwen/Qwen3-VL-8B-Instruct
+      - --served-model-name=Qwen/Qwen3-VL-8B-Instruct
+      - --dtype=bfloat16
+      - --limit-mm-per-prompt=image=16
+      - --max-model-len=16384
+      - --gpu-memory-utilization=0.85
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
