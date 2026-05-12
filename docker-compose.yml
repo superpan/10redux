@@ -14,13 +14,15 @@ services:
 
   # Optional: high-throughput captioning backend.
   # Enable with `docker compose --profile vllm up -d`.
-  # NOTE on DGX Spark (aarch64 + Blackwell sm_100): vllm/vllm-openai publishes
-  # multi-arch builds, but if a tag fails to start with an "unsupported arch"
-  # or sm_100 error, switch to NVIDIA's NGC container:
-  #   nvcr.io/nvidia/vllm:25.04-py3   (or newer)
+  #
+  # Pinned to NVIDIA's NGC vLLM build because:
+  #   - It is NVIDIA-blessed for Blackwell (GB10 / sm_121); no surprises.
+  #   - The 25.12.post1 tag is reproducible (no `latest` drift).
+  #   - The NGC entrypoint sets up CUDA env then execs whatever we pass,
+  #     so the command below must start with `vllm serve ...`.
   vllm:
     profiles: ["vllm"]
-    image: vllm/vllm-openai:latest
+    image: nvcr.io/nvidia/vllm:25.12.post1-py3
     ports:
       - "8000:8000"
     ipc: host
@@ -30,10 +32,13 @@ services:
       - HF_HOME=/root/.cache/huggingface
       - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
     command:
-      - --model=Qwen/Qwen3-VL-8B-Instruct
+      - vllm
+      - serve
+      - Qwen/Qwen3-VL-8B-Instruct
       - --served-model-name=Qwen/Qwen3-VL-8B-Instruct
       - --dtype=bfloat16
-      - --limit-mm-per-prompt=image=16
+      # JSON form: vLLM 0.7+ rejects the old key=value form
+      - '--limit-mm-per-prompt={"image": 16}'
       - --max-model-len=16384
       - --gpu-memory-utilization=0.85
     deploy:

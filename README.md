@@ -140,8 +140,9 @@ vLLM env vars:
 | `TEN_VLLM_MODEL` | same as `TEN_VLM_MODEL` | Model name as served by vLLM |
 | `TEN_VLLM_API_KEY` | `EMPTY` | Bearer token (vLLM doesn't enforce by default) |
 | `TEN_VLLM_CONCURRENCY` | `8` | Inflight clip captions; vLLM's continuous batching does the rest |
+| `TEN_VLLM_TIMEOUT` | `300` | Per-request client timeout (seconds). Bump higher if you see `ReadTimeout` under heavy concurrency. |
 
-> If `vllm/vllm-openai:latest` lacks Blackwell (sm_100/sm_121) support in your tag, swap the image for NVIDIA's NGC build (`nvcr.io/nvidia/vllm:25.04-py3` or newer) — same CLI args.
+> The vLLM image is pinned to `nvcr.io/nvidia/vllm:25.12.post1-py3` in `docker-compose.yml` — NVIDIA's NGC build, blessed for Blackwell (GB10 / sm_121). The compose `command` starts with `vllm serve …` because the NGC entrypoint is just an env-setup wrapper.
 
 ### Other levers
 

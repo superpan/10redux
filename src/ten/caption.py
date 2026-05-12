@@ -136,6 +136,7 @@ class VLLMCaptioner:
         model: str | None = None,
         api_key: str | None = None,
         max_concurrency: int | None = None,
+        timeout: float | None = None,
     ) -> None:
         self.url = (url or os.environ.get("TEN_VLLM_URL", "http://localhost:8000/v1")).rstrip("/")
         self.model = model or os.environ.get("TEN_VLLM_MODEL", CONFIG.vlm_model)
@@ -143,7 +144,10 @@ class VLLMCaptioner:
         self.max_concurrency = int(
             max_concurrency or os.environ.get("TEN_VLLM_CONCURRENCY", "8")
         )
-        self._client = httpx.Client(timeout=httpx.Timeout(120.0, connect=10.0))
+        # Multi-image requests under contended batching can take >2 min on a
+        # single GPU. Default 300 s; tune via TEN_VLLM_TIMEOUT.
+        self.timeout = float(timeout or os.environ.get("TEN_VLLM_TIMEOUT", "300"))
+        self._client = httpx.Client(timeout=httpx.Timeout(self.timeout, connect=10.0))
 
     def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
         content: list[dict] = [
