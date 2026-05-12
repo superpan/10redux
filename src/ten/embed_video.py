@@ -35,7 +35,7 @@ class VideoEmbedder:
 
             dtype = _DTYPE_MAP.get(CONFIG.dtype, torch.bfloat16)
             self._processor = AutoVideoProcessor.from_pretrained(self.model_id)
-            self._model = AutoModel.from_pretrained(self.model_id, torch_dtype=dtype)
+            self._model = AutoModel.from_pretrained(self.model_id, dtype=dtype)
             self._model.eval().to(CONFIG.device)
 
     @property

@@ -13,6 +13,8 @@ wheels/
 .ten/
 data/
 qdrant_storage/
+videos/
+logs/
 *.log
 
 # Frontend

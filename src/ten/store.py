@@ -102,20 +102,20 @@ class Store:
             return False
 
     def search_visual(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
-        return self.client.search(
+        return self.client.query_points(
             collection_name=CONFIG.visual_collection,
-            query_vector=vec.tolist(),
+            query=vec.tolist(),
             limit=limit,
             with_payload=True,
-        )
+        ).points
 
     def search_text(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
-        return self.client.search(
+        return self.client.query_points(
             collection_name=CONFIG.text_collection,
-            query_vector=vec.tolist(),
+            query=vec.tolist(),
             limit=limit,
             with_payload=True,
-        )
+        ).points
 
     def get(self, clip_id: str) -> dict | None:
         res = self.client.retrieve(

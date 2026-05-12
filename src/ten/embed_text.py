@@ -28,7 +28,11 @@ class TextEmbedder:
             from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self.model_id, device=CONFIG.device)
-            self._dim = self._model.get_sentence_embedding_dimension()
+            self._dim = (
+                self._model.get_embedding_dimension()
+                if hasattr(self._model, "get_embedding_dimension")
+                else self._model.get_sentence_embedding_dimension()
+            )
 
     @property
     def dim(self) -> int:

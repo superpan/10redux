@@ -1,5 +1,9 @@
 services:
   qdrant:
+    # NOTE: 1.18+ can't load segment metadata written by 1.12 (unknown variant
+    # 'on_disk'). Stay on 1.12 until we do a clean re-index, or migrate per
+    # https://qdrant.tech/documentation/guides/migration/. Client warning about
+    # version skew is benign.
     image: qdrant/qdrant:v1.12.4
     ports:
       - "6333:6333"

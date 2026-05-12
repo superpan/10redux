@@ -71,7 +71,7 @@ class TransformersCaptioner:
             dtype = _DTYPE_MAP.get(CONFIG.dtype, torch.bfloat16)
             self._processor = AutoProcessor.from_pretrained(self.model_id)
             self._model = AutoModelForImageTextToText.from_pretrained(
-                self.model_id, torch_dtype=dtype, device_map=CONFIG.device
+                self.model_id, dtype=dtype, device_map=CONFIG.device
             )
             self._model.eval()
 

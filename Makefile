@@ -45,6 +45,11 @@ services-up: qdrant-up ## Bring up all required services (qdrant only by default
 services-down: ## Stop everything Docker-managed
 	docker compose --profile vllm down
 
+##@ Datasets
+
+fetch-smoke: ## Download 5 public-domain videos to ./videos/smoke for smoke testing
+	uv run python tools/fetch_smoke.py
+
 ##@ Index / search
 
 index: ## Ingest a folder of videos (FOLDER=...). Resumable.
@@ -110,6 +115,7 @@ help: ## Show this help
 
 .PHONY: install ui-install ffmpeg bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
+        fetch-smoke \
         index index-vllm reindex smoke search status \
         serve serve-reload ui-build ui-dev dev \
         lint format clean-thumbs clean-qdrant help

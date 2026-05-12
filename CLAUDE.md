@@ -7,7 +7,7 @@
 - **Hardware**: DGX Spark — Grace Blackwell GB10, **aarch64**, CUDA 13.
 - **Python**: 3.12, managed by **uv**. Always invoke as `uv run …`. Do not call `python` / `pip` directly and do not edit `.venv` by hand.
 - **No `decord`** — no aarch64 wheels. Use **PyAV** (`av`) for all video decoding/probing.
-- **PyTorch**: pulled from the `cu128` index (configured in `pyproject.toml` under `[tool.uv.sources]`). Don't switch indexes without checking aarch64 wheel availability.
+- **PyTorch**: pulled from the `cu129` index (configured in `pyproject.toml` under `[tool.uv.sources]`). **Do not downgrade to cu128** — it lacks `compute_120` PTX, so on GB10 (device cap 12.1 / sm_121) PyTorch falls back to NVRTC JIT which then fails with `nvrtc: error: invalid value for --gpu-architecture (-arch)`. cu129 ships `compute_120` PTX and JITs fine to sm_121.
 - `ffmpeg` must be on PATH for thumbnails / fallback decode.
 
 ## Stack at a glance
@@ -65,6 +65,9 @@ The raw `uv run ten ...` and `docker compose ...` commands still work — Makefi
 
 ## Gotchas
 
+- **NVRTC arch error** (`invalid value for --gpu-architecture (-arch)`): PyTorch trying to JIT a kernel for sm_121 from a wheel that doesn't ship `compute_120` PTX. Fix is the cu129 index (already configured) — don't paper over with `TORCH_CUDA_ARCH_LIST`.
+- **Qdrant is pinned to 1.12.4** (see `docker-compose.yml`). Newer images (≥1.18) refuse to load 1.12-written segments (`unknown variant 'on_disk'`). The qdrant-client warning about version skew is benign. To upgrade, do a clean re-index or follow Qdrant's migration guide; don't just bump the tag.
+- **qdrant-client 1.18 dropped `.search()`** in favor of `.query_points(...).points`. The store layer already uses the new API; don't reintroduce `.search()`.
 - **First ingest** downloads ~20 GB of weights (V-JEPA + Qwen3-VL + Qwen3-Embedding) into `~/.cache/huggingface`. Surface this clearly when asked about runtime.
 - **Qdrant URL** defaults to `http://localhost:6333`. If `ten status` shows "Connection refused", the user hasn't started Docker yet.
 - **`AutoVideoProcessor` import** in `embed_video.py` is from `transformers` ≥ 4.49. If transformers is downgraded for any reason, V-JEPA 2 won't load.

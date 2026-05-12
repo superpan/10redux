@@ -44,10 +44,10 @@ target-version = "py312"
 # DGX Spark / Grace Blackwell aarch64: pull torch from the CUDA 12.8 index,
 # which publishes aarch64 wheels compatible with CUDA 13 driver.
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu128" }
-torchvision = { index = "pytorch-cu128" }
+torch = { index = "pytorch-cu129" }
+torchvision = { index = "pytorch-cu129" }
