@@ -3,30 +3,32 @@
 Endpoints:
   GET  /health
   GET  /stats
-  GET  /search?q=...&limit=20            -> text search
-  POST /search/image  (file upload)      -> image-as-query
-  GET  /clip/{clip_id}                   -> payload
-  GET  /clip/{clip_id}/summary           -> on-demand long summary (Qwen3-VL)
-  GET  /thumb/{clip_id}.jpg              -> JPEG thumbnail
-  GET  /clip/{clip_id}/stream            -> HTTP Range stream of original video
+  GET  /search?q=...&limit=20                       -> text search
+  POST /search/image  (file upload)                 -> image-as-query
+  GET  /clip/{clip_id}                              -> payload
+  GET  /clip/{clip_id}/summary?dimension=narrative  -> on-demand summary
+  GET  /summary?video=...&t_start=...&t_end=...     -> arbitrary-range summary
+  POST /summary  {"spans":[{...}],"dimension":"..."} -> multi-span summary
+  GET  /thumb/{clip_id}.jpg                         -> JPEG thumbnail
+  GET  /clip/{clip_id}/stream                       -> HTTP Range stream
 """
 from __future__ import annotations
 
 import io
-import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
+from pydantic import BaseModel, Field
 
-from .caption import CaptionerProtocol, make_captioner
 from .config import CONFIG
 from .search import Searcher
 from .store import Store
-from .video import Clip, sample_clip_frames
+from .summarize import DIMENSIONS, Span, Summarizer, make_summarizer
+from .video import Clip
 
 app = FastAPI(title="ten")
 
@@ -38,9 +40,8 @@ app.add_middleware(
 )
 
 _searcher: Searcher | None = None
-_captioner: CaptionerProtocol | None = None
+_summarizer: Summarizer | None = None
 _store: Store | None = None
-_summary_cache: dict[str, str] = {}
 
 
 def searcher() -> Searcher:
@@ -50,11 +51,11 @@ def searcher() -> Searcher:
     return _searcher
 
 
-def captioner() -> CaptionerProtocol:
-    global _captioner
-    if _captioner is None:
-        _captioner = make_captioner()
-    return _captioner
+def summarizer() -> Summarizer:
+    global _summarizer
+    if _summarizer is None:
+        _summarizer = make_summarizer()
+    return _summarizer
 
 
 def store() -> Store:
@@ -62,6 +63,38 @@ def store() -> Store:
     if _store is None:
         _store = Store()
     return _store
+
+
+class SpanIn(BaseModel):
+    video: str = Field(..., description="Absolute or repo-relative path to the video file")
+    t_start: float = Field(..., ge=0)
+    t_end: float = Field(..., gt=0)
+
+
+class SummaryIn(BaseModel):
+    spans: list[SpanIn] = Field(..., min_length=1)
+    dimension: str = "narrative"
+    max_frames: int = Field(32, ge=1, le=128)
+    max_tokens: int = Field(256, ge=16, le=1024)
+
+
+def _validate_dimension(dimension: str) -> str:
+    if dimension not in DIMENSIONS:
+        raise HTTPException(400, f"unknown dimension; expected one of {list(DIMENSIONS)}")
+    return dimension
+
+
+def _spans_from_clip_id(clip_id: str) -> list[Span]:
+    payload = store().get(clip_id)
+    if not payload:
+        raise HTTPException(404, "clip not found")
+    return [
+        Span(
+            video_path=Path(payload["video_path"]),
+            t_start=float(payload["t_start"]),
+            t_end=float(payload["t_end"]),
+        )
+    ]
 
 
 @app.get("/health")
@@ -101,21 +134,42 @@ def api_clip(clip_id: str) -> dict:
 
 
 @app.get("/clip/{clip_id}/summary")
-def api_summary(clip_id: str) -> dict:
-    if clip_id in _summary_cache:
-        return {"clip_id": clip_id, "summary": _summary_cache[clip_id], "cached": True}
-    payload = store().get(clip_id)
-    if not payload:
-        raise HTTPException(404, "clip not found")
-    clip = Clip(
-        video_path=Path(payload["video_path"]),
-        t_start=float(payload["t_start"]),
-        t_end=float(payload["t_end"]),
+def api_clip_summary(clip_id: str, dimension: str = "narrative") -> dict:
+    dim = _validate_dimension(dimension)
+    spans = _spans_from_clip_id(clip_id)
+    text = summarizer().summarize(spans, dimension=dim)
+    return {"clip_id": clip_id, "dimension": dim, "summary": text}
+
+
+@app.get("/summary")
+def api_summary_range(
+    video: str = Query(..., description="Path to the video file"),
+    t_start: float = Query(..., ge=0),
+    t_end: float = Query(..., gt=0),
+    dimension: str = "narrative",
+    max_frames: int = Query(32, ge=1, le=128),
+    max_tokens: int = Query(256, ge=16, le=1024),
+) -> dict:
+    dim = _validate_dimension(dimension)
+    if t_end <= t_start:
+        raise HTTPException(400, "t_end must be greater than t_start")
+    span = Span(video_path=Path(video), t_start=t_start, t_end=t_end)
+    text = summarizer().summarize(
+        [span], dimension=dim, max_frames=max_frames, max_tokens=max_tokens
     )
-    frames = sample_clip_frames(clip, CONFIG.frames_per_clip, CONFIG.frame_resize)
-    summary = captioner().summarize(frames)
-    _summary_cache[clip_id] = summary
-    return {"clip_id": clip_id, "summary": summary, "cached": False}
+    return {"dimension": dim, "summary": text, "spans": [span.cache_key()]}
+
+
+@app.post("/summary")
+def api_summary_multi(req: SummaryIn) -> dict:
+    dim = _validate_dimension(req.dimension)
+    spans = [
+        Span(video_path=Path(s.video), t_start=s.t_start, t_end=s.t_end) for s in req.spans
+    ]
+    text = summarizer().summarize(
+        spans, dimension=dim, max_frames=req.max_frames, max_tokens=req.max_tokens
+    )
+    return {"dimension": dim, "summary": text, "spans": [s.cache_key() for s in spans]}
 
 
 @app.get("/thumb/{clip_id}.jpg")

@@ -41,6 +41,7 @@ def search(
 
     table = Table(title=f'"{query}" — top {len(hits)}', show_lines=False)
     table.add_column("#", justify="right", style="dim")
+    table.add_column("id", style="dim", no_wrap=True)
     table.add_column("score", justify="right")
     table.add_column("src", justify="center")
     table.add_column("video")
@@ -50,6 +51,7 @@ def search(
         p = h.payload
         table.add_row(
             str(i),
+            p["clip_id"],
             f"{h.score:.3f}",
             "+".join(h.sources),
             p["video_name"],
@@ -107,25 +109,87 @@ def status() -> None:
 
 
 @app.command()
-def summary(clip_id: str) -> None:
-    """Generate a longer Qwen3-VL summary for a clip on demand."""
-    from pathlib import Path
-
-    from .caption import make_captioner
+def summary(
+    clip_id: Optional[str] = typer.Argument(
+        None,
+        help="Single clip id (copy from `ten search`). Mutually exclusive with --range/--clip-ids.",
+    ),
+    range_: Optional[str] = typer.Option(
+        None,
+        "--range",
+        "-r",
+        metavar="VIDEO:T_START-T_END",
+        help="Arbitrary time range, e.g. ./videos/foo.mp4:60-180",
+    ),
+    clip_ids: Optional[str] = typer.Option(
+        None,
+        "--clip-ids",
+        help="Comma-separated clip ids — summarize them as one multi-span input.",
+    ),
+    dimension: str = typer.Option(
+        "narrative",
+        "--dimension",
+        "-d",
+        help="narrative | visual | motion | aesthetic",
+    ),
+    max_frames: int = typer.Option(32, "--max-frames"),
+    max_tokens: int = typer.Option(256, "--max-tokens"),
+) -> None:
+    """Summarize a clip, a time range, or a set of clips along a chosen dimension."""
     from .store import Store
-    from .video import Clip, sample_clip_frames
+    from .summarize import DIMENSIONS, Span, make_summarizer
 
-    payload = Store().get(clip_id)
-    if not payload:
-        console.print("[red]clip not found[/red]")
-        raise typer.Exit(1)
-    clip = Clip(
-        video_path=Path(payload["video_path"]),
-        t_start=float(payload["t_start"]),
-        t_end=float(payload["t_end"]),
+    given = sum(x is not None for x in (clip_id, range_, clip_ids))
+    if given != 1:
+        console.print(
+            "[red]provide exactly one of:[/red] CLIP_ID  |  --range VIDEO:T0-T1  |  --clip-ids id1,id2,..."
+        )
+        raise typer.Exit(2)
+    if dimension not in DIMENSIONS:
+        console.print(f"[red]unknown dimension {dimension!r}; expected one of {DIMENSIONS}[/red]")
+        raise typer.Exit(2)
+
+    store = Store()
+    spans: list[Span] = []
+    if clip_id:
+        payload = store.get(clip_id)
+        if not payload:
+            console.print("[red]clip not found[/red]")
+            raise typer.Exit(1)
+        spans.append(
+            Span(
+                video_path=Path(payload["video_path"]),
+                t_start=float(payload["t_start"]),
+                t_end=float(payload["t_end"]),
+            )
+        )
+    elif clip_ids:
+        for cid in [c.strip() for c in clip_ids.split(",") if c.strip()]:
+            payload = store.get(cid)
+            if not payload:
+                console.print(f"[red]clip not found: {cid}[/red]")
+                raise typer.Exit(1)
+            spans.append(
+                Span(
+                    video_path=Path(payload["video_path"]),
+                    t_start=float(payload["t_start"]),
+                    t_end=float(payload["t_end"]),
+                )
+            )
+    else:
+        assert range_ is not None
+        try:
+            video_path, range_str = range_.rsplit(":", 1)
+            t0_str, t1_str = range_str.split("-", 1)
+            t0, t1 = float(t0_str), float(t1_str)
+        except Exception:
+            console.print("[red]bad --range; expected VIDEO:T_START-T_END[/red]")
+            raise typer.Exit(2)
+        spans.append(Span(video_path=Path(video_path), t_start=t0, t_end=t1))
+
+    text = make_summarizer().summarize(
+        spans, dimension=dimension, max_frames=max_frames, max_tokens=max_tokens
     )
-    frames = sample_clip_frames(clip, CONFIG.frames_per_clip, CONFIG.frame_resize)
-    text = make_captioner().summarize(frames)
     console.print(text)
 
 

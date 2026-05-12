@@ -4,7 +4,10 @@ Two backends, picked via TEN_VLM_BACKEND:
   - "transformers" (default): in-process HF model. Zero extra infra.
   - "vllm": HTTP client to a vLLM OpenAI-compatible server (much faster ingest).
 
-The CaptionerProtocol is what the rest of the pipeline (ingest, api, cli) imports.
+The CaptionerProtocol exposes:
+  - caption(frames):           ingest-side single-clip caption (1-2 sentences)
+  - generate(frames, prompt, max_tokens): generic VLM call used by Summarizer
+
 Use `make_captioner()` to get the right implementation.
 """
 from __future__ import annotations
@@ -31,17 +34,11 @@ CAPTION_PROMPT = (
     "Be specific (concrete nouns, observable verbs). Avoid speculation."
 )
 
-SUMMARY_PROMPT = (
-    "Summarize this video clip in 3-5 sentences. "
-    "Cover: what is happening, who or what appears, the setting, and any notable changes over time. "
-    "Be factual and specific."
-)
-
 
 class CaptionerProtocol(Protocol):
     def caption(self, frames: np.ndarray) -> str: ...
-    def summarize(self, frames: np.ndarray) -> str: ...
     def caption_batch(self, clips_frames: Sequence[np.ndarray]) -> list[str]: ...
+    def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str: ...
 
 
 def _frames_to_pil(frames: np.ndarray) -> list[Image.Image]:
@@ -76,7 +73,7 @@ class TransformersCaptioner:
             self._model.eval()
 
     @torch.no_grad()
-    def _generate(self, frames: np.ndarray, prompt: str, max_new_tokens: int) -> str:
+    def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
         self._ensure_loaded()
         pil_frames = _frames_to_pil(frames)
         messages = [
@@ -95,7 +92,7 @@ class TransformersCaptioner:
             text=[text], videos=[pil_frames], return_tensors="pt", padding=True
         ).to(CONFIG.device)
         gen = self._model.generate(
-            **inputs, max_new_tokens=max_new_tokens, do_sample=False, temperature=1.0
+            **inputs, max_new_tokens=max_tokens, do_sample=False, temperature=1.0
         )
         in_len = inputs["input_ids"].shape[1]
         out_tokens = gen[:, in_len:]
@@ -104,10 +101,7 @@ class TransformersCaptioner:
         )[0].strip()
 
     def caption(self, frames: np.ndarray) -> str:
-        return self._generate(frames, CAPTION_PROMPT, max_new_tokens=96)
-
-    def summarize(self, frames: np.ndarray) -> str:
-        return self._generate(frames, SUMMARY_PROMPT, max_new_tokens=256)
+        return self.generate(frames, CAPTION_PROMPT, max_tokens=96)
 
     def caption_batch(self, clips_frames: Sequence[np.ndarray]) -> list[str]:
         return [self.caption(f) for f in clips_frames]
@@ -131,9 +125,9 @@ def _frames_to_data_urls(frames: np.ndarray, jpeg_quality: int = 80) -> list[str
 class VLLMCaptioner:
     """Client for a running vLLM OpenAI-compatible server.
 
-    Multiplexes ingest by sending each clip as a chat completion with the clip's
-    frames packed as multiple image_url blocks (the standard OpenAI multi-image
-    payload). vLLM's continuous batching keeps the GPU saturated across requests.
+    Each call sends one chat completion with the clip's frames packed as
+    multiple image_url blocks. vLLM's continuous batching keeps the GPU
+    saturated across requests when many calls are in-flight.
     """
 
     def __init__(
@@ -151,7 +145,7 @@ class VLLMCaptioner:
         )
         self._client = httpx.Client(timeout=httpx.Timeout(120.0, connect=10.0))
 
-    def _chat(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
+    def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
         content: list[dict] = [
             {"type": "image_url", "image_url": {"url": u}} for u in _frames_to_data_urls(frames)
         ]
@@ -169,13 +163,10 @@ class VLLMCaptioner:
         return data["choices"][0]["message"]["content"].strip()
 
     def caption(self, frames: np.ndarray) -> str:
-        return self._chat(frames, CAPTION_PROMPT, max_tokens=96)
-
-    def summarize(self, frames: np.ndarray) -> str:
-        return self._chat(frames, SUMMARY_PROMPT, max_tokens=256)
+        return self.generate(frames, CAPTION_PROMPT, max_tokens=96)
 
     def caption_batch(self, clips_frames: Sequence[np.ndarray]) -> list[str]:
-        # Fan out concurrently — vLLM does the actual batching server-side via continuous batching.
+        # Fan out concurrently — vLLM does the actual batching server-side.
         from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor(max_workers=self.max_concurrency) as ex:
@@ -194,7 +185,3 @@ def make_captioner() -> CaptionerProtocol:
     if backend == "transformers":
         return TransformersCaptioner()
     raise ValueError(f"Unknown TEN_VLM_BACKEND: {backend!r} (expected 'transformers' or 'vllm')")
-
-
-# Backwards-compat shim: old code imported `Captioner` directly.
-Captioner = TransformersCaptioner
