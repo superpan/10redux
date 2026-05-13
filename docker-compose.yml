@@ -40,7 +40,10 @@ services:
       # JSON form: vLLM 0.7+ rejects the old key=value form
       - '--limit-mm-per-prompt={"image": 16}'
       - --max-model-len=16384
-      - --gpu-memory-utilization=0.85
+      # GB10 has 128 GB unified memory; the ingest process needs V-JEPA 2 and
+      # Qwen3-Embedding on the same GPU (~5 GB headroom). 0.55 leaves ~70 GB
+      # for vLLM (more than enough for Qwen3-VL-8B + 16K KV) and ~58 GB free.
+      - --gpu-memory-utilization=0.55
     deploy:
       resources:
         reservations:
