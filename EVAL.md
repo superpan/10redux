@@ -10,13 +10,15 @@ The standard 1K-A protocol: 1000 test videos, 1 caption each, retrieve the match
 
 | metric | value |
 |---|---|
-| Recall@1   | **0.343** |
-| Recall@5   | **0.553** |
-| Recall@10  | **0.651** |
+| Recall@1   | **0.338** |
+| Recall@5   | **0.559** |
+| Recall@10  | **0.657** |
 | Median rank | 4 |
-| Mean rank   | 40.5 |
+| Mean rank   | 44.0 |
 | Queries (n) | 1000 |
 | Wall time   | 44 s |
+
+(Earlier 16-frame run got 0.343 / 0.553 / 0.651 — within noise. We use 8 frames per clip by default; see "Frame budget" below.)
 
 ![MSR-VTT 1K-A: Recall@K + rank distribution](data/eval/msrvtt_latest.png)
 
@@ -54,8 +56,12 @@ DGX Spark — NVIDIA GB10 (Grace Blackwell, sm_121, aarch64), CUDA 13.
 | stage | wall time |
 |---|---|
 | `make fetch-msrvtt` (download + extract 1K test) | ~3 min |
-| `make ingest-msrvtt` (1000 videos, vLLM backend) | 34 m 19 s (~2.06 s/clip) |
+| `make ingest-msrvtt` (1000 videos, vLLM backend, 8 frames/clip) | 29 m 23 s (~1.76 s/clip) |
 | `make eval` (1000 text queries) | 44 s |
+
+### Frame budget
+
+`TEN_FRAMES_PER_CLIP` defaults to **8**. Raising to 16 produced essentially identical retrieval quality (R@1 0.343 vs 0.338) at 17% higher ingest cost — diminishing returns. For motion-heavy footage where caption fidelity matters more than throughput, bump to 16.
 
 ### Caveats
 
