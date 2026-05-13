@@ -76,14 +76,17 @@ class TransformersCaptioner:
     def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
         self._ensure_loaded()
         pil_frames = _frames_to_pil(frames)
+        # Static instruction goes in the system message so vLLM's prefix cache
+        # can reuse its KV across all requests; only the per-clip frames in
+        # the user message vary.
         messages = [
+            {"role": "system", "content": prompt},
             {
                 "role": "user",
                 "content": [
                     {"type": "video", "video": pil_frames},
-                    {"type": "text", "text": prompt},
                 ],
-            }
+            },
         ]
         text = self._processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -150,13 +153,19 @@ class VLLMCaptioner:
         self._client = httpx.Client(timeout=httpx.Timeout(self.timeout, connect=10.0))
 
     def generate(self, frames: np.ndarray, prompt: str, max_tokens: int) -> str:
+        # System message holds the static instruction so vLLM's prefix cache
+        # reuses its KV across requests; user message holds only the per-clip
+        # frames. Without this, the per-request unique image bytes break the
+        # cache before the (identical) instruction text is ever reached.
         content: list[dict] = [
             {"type": "image_url", "image_url": {"url": u}} for u in _frames_to_data_urls(frames)
         ]
-        content.append({"type": "text", "text": prompt})
         body = {
             "model": self.model,
-            "messages": [{"role": "user", "content": content}],
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": content},
+            ],
             "max_tokens": max_tokens,
             "temperature": 0.0,
         }
