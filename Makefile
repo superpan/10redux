@@ -72,6 +72,9 @@ index: ## Ingest a folder of videos (FOLDER=...). Resumable.
 index-vllm: ## Ingest using the vLLM captioner backend (~3-5x faster)
 	TEN_VLM_BACKEND=vllm uv run ten index $(FOLDER)
 
+index-asr: ## Ingest with Whisper ASR transcripts (FOLDER=..., uses vLLM if available)
+	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper uv run ten index $(FOLDER) --asr
+
 reindex: ## Re-embed every clip in FOLDER, ignoring existing ids
 	uv run ten index $(FOLDER) --force
 
@@ -130,6 +133,6 @@ help: ## Show this help
 .PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
         fetch-smoke fetch-msrvtt eval ingest-msrvtt \
-        index index-vllm reindex smoke search status \
+        index index-vllm index-asr reindex smoke search status \
         serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

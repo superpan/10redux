@@ -34,6 +34,18 @@ class Config:
         default_factory=lambda: _env("TEN_TEXT_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
     )
 
+    # ASR (off by default — opt-in via TEN_ASR_BACKEND=whisper or `ten index --asr`).
+    # When enabled, each clip gets a Whisper transcript that is concatenated
+    # with the visual caption before the text embedding step.
+    asr_backend: str = field(default_factory=lambda: _env("TEN_ASR_BACKEND", "none"))
+    asr_model: str = field(default_factory=lambda: _env("TEN_ASR_MODEL", "large-v3"))
+    asr_language: str | None = field(
+        default_factory=lambda: os.environ.get("TEN_ASR_LANGUAGE") or None
+    )
+    asr_compute_type: str = field(
+        default_factory=lambda: _env("TEN_ASR_COMPUTE_TYPE", "float16")
+    )
+
     clip_seconds: float = float(_env("TEN_CLIP_SECONDS", "10"))
     clip_overlap: float = float(_env("TEN_CLIP_OVERLAP", "1"))
     # 8 frames matches V-JEPA 2's spatial-temporal budget well enough and

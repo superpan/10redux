@@ -16,6 +16,7 @@
 |---|---|---|
 | Visual embeddings | V-JEPA 2 (`facebook/vjepa2-vitl-fpc16-256-ssv2`) | `src/ten/embed_video.py` |
 | Captions / summaries | Qwen3-VL-8B-Instruct | `src/ten/caption.py` |
+| ASR (opt-in) | Whisper-large-v3 via HF transformers (default) or faster-whisper | `src/ten/asr.py`, `src/ten/audio.py` |
 | Caption embeddings | Qwen3-Embedding-0.6B (sentence-transformers) | `src/ten/embed_text.py` |
 | Vector store | Qdrant (two collections, RRF-fused) | `src/ten/store.py`, `src/ten/search.py` |
 | Ingest orchestrator | PyAV chunking → batched embed → upsert | `src/ten/ingest.py` |
@@ -94,5 +95,6 @@ The raw `uv run ten ...` and `docker compose ...` commands still work — Makefi
 - **Qdrant URL** defaults to `http://localhost:6333`. If `ten status` shows "Connection refused", the user hasn't started Docker yet.
 - **`AutoVideoProcessor` import** in `embed_video.py` is from `transformers` ≥ 4.49. If transformers is downgraded for any reason, V-JEPA 2 won't load.
 - **vLLM image** on DGX Spark: `vllm/vllm-openai:latest` may lag sm_100 (Blackwell) support. Fallback is NVIDIA's NGC build (`nvcr.io/nvidia/vllm:25.04-py3` or newer).
+- **faster-whisper on aarch64** lacks GPU support — its CTranslate2 wheel ships CPU-only on ARM. Stay on `TEN_ASR_BACKEND=whisper` (HF transformers, runs on the existing torch CUDA). `fasterwhisper` is the right choice on x86_64 GPU boxes.
 - The Next.js dev rewrites (`ui/next.config.mjs`) must mirror the FastAPI route prefixes. When adding a new endpoint family, add it to the `rewrites()` array too.
 - UI is **static-export Next.js** (`output: 'export'`). All pages must be client components if they use state/effects (`"use client"` directive). Don't add server actions, route handlers in `app/api/`, or middleware — they'd require a Node runtime in prod and we want a single-process FastAPI deployment. `next build` writes to `ui/out/`, which `api.py` mounts.

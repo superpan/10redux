@@ -4,6 +4,7 @@ Open-weight video search for large libraries.
 
 - **Visual embeddings** — [V-JEPA 2](https://huggingface.co/facebook/vjepa2-vitl-fpc16-256-ssv2) (Meta; self-supervised, strong temporal understanding)
 - **Captions / summaries** — [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) (multi-image / video reasoning)
+- **ASR transcripts** *(opt-in)* — [Whisper-large-v3](https://huggingface.co/openai/whisper-large-v3) via HF transformers (default) or [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - **Caption embeddings** — [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
 - **Vector index** — Qdrant, two collections, RRF-fused at query time
 - **API + UI** — FastAPI + Next.js 15
@@ -93,6 +94,8 @@ Above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0
 
 The two-collection layout means a text-aligned video encoder is unnecessary — the LLM does the text alignment by writing captions, and you still get fast vector retrieval at query time.
 
+**ASR — opt-in.** Run `ten index --asr` (or `make index-asr FOLDER=…`) to add a Whisper transcript per clip. The transcript is appended to the caption before embedding, so the same `ten search` text query catches both visible content and spoken dialogue. Roughly ~real-time on GPU with Whisper-large-v3, so ASR-enabled ingest is ~3× wall time vs visual-only. See [EVAL.md](EVAL.md#asr--voice-tag-retrieval) for voice-tag examples and known Whisper artifacts (music transcribed as `¶¶¶`, occasional repetition loops on quiet audio).
+
 ## Requirements
 
 - NVIDIA GPU, ≥24 GB VRAM recommended (Qwen3-VL-8B in bf16).
@@ -152,6 +155,9 @@ All settings are env vars (see `src/ten/config.py`):
 | `TEN_VJEPA_MODEL` | `facebook/vjepa2-vitl-fpc16-256-ssv2` | Visual encoder |
 | `TEN_VLM_MODEL` | `Qwen/Qwen3-VL-8B-Instruct` | Captioner / summarizer |
 | `TEN_TEXT_EMBED_MODEL` | `Qwen/Qwen3-Embedding-0.6B` | Caption embedder |
+| `TEN_ASR_BACKEND` | `none` | `none` / `whisper` (HF transformers) / `fasterwhisper` |
+| `TEN_ASR_MODEL` | `large-v3` | Whisper variant — `tiny/base/small/medium/large-v3/large-v3-turbo` or full HF id |
+| `TEN_ASR_LANGUAGE` | *(auto)* | Force a language code (`en`, `es`, …) instead of auto-detect |
 | `TEN_CLIP_SECONDS` | `10` | Clip window length |
 | `TEN_CLIP_OVERLAP` | `1` | Overlap between adjacent clips |
 | `TEN_FRAMES_PER_CLIP` | `8` | Frames sampled per clip (bump to 16 for motion-heavy footage at +~17% ingest cost) |

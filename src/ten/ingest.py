@@ -17,6 +17,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from .asr import TranscriberProtocol, make_transcriber
+from .audio import extract_audio
 from .caption import CaptionerProtocol, make_captioner
 from .config import CONFIG
 from .embed_text import TextEmbedder
@@ -53,6 +55,9 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
     video_embedder = VideoEmbedder()
     text_embedder = TextEmbedder()
     captioner = make_captioner()
+    transcriber = make_transcriber()  # None unless TEN_ASR_BACKEND is set
+    if transcriber is not None:
+        console.print("[bold]ASR enabled[/bold] — Whisper transcripts will be appended to caption text")
     store = Store()
 
     # Sniff dims (forces model load) so we can create collections up-front.
@@ -100,11 +105,11 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
                 continue
             batch.append((clip, frames))
             if len(batch) >= CONFIG.batch_size:
-                processed += _flush(batch, video_embedder, text_embedder, captioner, store)
+                processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, store)
                 batch.clear()
             progress.advance(task)
         if batch:
-            processed += _flush(batch, video_embedder, text_embedder, captioner, store)
+            processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, store)
 
     console.print(
         f"[green]Done.[/green] processed={processed} skipped={skipped} total={len(plan)}"
@@ -117,6 +122,7 @@ def _flush(
     video_embedder: VideoEmbedder,
     text_embedder: TextEmbedder,
     captioner: CaptionerProtocol,
+    transcriber: TranscriberProtocol | None,
     store: Store,
 ) -> int:
     clips = [b[0] for b in batch]
@@ -128,12 +134,31 @@ def _flush(
     # Captions (sequential; VLM dominated by attention).
     captions = captioner.caption_batch(frames_list)
 
-    # Text embeddings (batched).
-    text_vecs = text_embedder.embed_passages(captions)
+    # Optional transcripts. ffmpeg pulls a 16 kHz mono wav per clip; Whisper
+    # transcribes. Empty string for clips with no audio / on extraction failure.
+    transcripts: list[str] = ["" for _ in clips]
+    if transcriber is not None:
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory(prefix="ten_asr_") as td:
+            tmpdir = Path(td)
+            for i, clip in enumerate(clips):
+                wav = tmpdir / f"{clip.clip_id}.wav"
+                try:
+                    if extract_audio(clip, wav):
+                        transcripts[i] = transcriber.transcribe(wav)
+                except Exception as e:
+                    console.print(f"[yellow]ASR failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
+
+    # Text embeddings: caption + transcript so retrieval picks up either signal.
+    embed_inputs = [
+        f"{cap}\n{trans}" if trans else cap for cap, trans in zip(captions, transcripts, strict=True)
+    ]
+    text_vecs = text_embedder.embed_passages(embed_inputs)
 
     # Thumbnails + payloads.
     payloads: list[ClipPayload] = []
-    for clip, caption in zip(clips, captions, strict=True):
+    for clip, caption, transcript in zip(clips, captions, transcripts, strict=True):
         thumb = _thumb_path(clip.clip_id)
         if not thumb.exists():
             try:
@@ -150,6 +175,7 @@ def _flush(
                 duration=clip.t_end - clip.t_start,
                 caption=caption,
                 thumb_path=str(thumb.resolve()),
+                transcript=transcript,
             )
         )
 

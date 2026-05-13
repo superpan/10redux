@@ -72,7 +72,26 @@ DGX Spark — NVIDIA GB10 (Grace Blackwell, sm_121, aarch64), CUDA 13.
 - **No ASR / dialogue** in the caption. Talking-head videos under-perform.
 - The `1K-A` split (single caption per video, this is `friedrichor/MSR-VTT`'s `msrvtt_test_1k.json`) — some papers report on the original 20-captions-per-video protocol; numbers are not directly comparable.
 
-### Reproduce
+## ASR — voice-tag retrieval
+
+Smoke test on Sintel (99 clips, ~11 min vLLM + Whisper-large-v3 ingest, 6.7 s/clip). Queries that target spoken dialogue with no relation to visible content all hit the correct clip:
+
+| query (no visual cue) | top hit transcript |
+|---|---|
+| "land of the gatekeepers" | "…what brings you to the land of the Gatekeepers? I'm searching for something." |
+| "fool for traveling alone" | "You're a fool for traveling alone so completely unprepared…" |
+| "shed innocent blood" | "It has a dark past. It has shed much innocent blood." |
+| "I'm searching for someone dear" | "I'm searching for someone. Someone very dear? A kindred spirit? A dragon." |
+
+Visual queries ("dragon", "warrior fighting in a desert canyon") rank the correct clips at #1 unchanged — adding ASR doesn't regress the caption side.
+
+### ASR caveats
+
+- **Music → `¶¶¶…`** : Whisper transcribes instrumental sections as repeated note characters. The VAD filter helps but doesn't catch all of them.
+- **Repetition loops** : on quiet / ambiguous audio, Whisper sometimes outputs the same phrase ("I'm sorry. I'm sorry…") for the entire clip. Known Whisper failure mode.
+- These pollute search slightly: a query like "music" or "I'm sorry" can rank these glitchy clips highly. For most real queries the impact is minor; for serious deployment, post-process transcripts to detect and zero out clips where >50% of tokens are repeated.
+
+## Reproduce
 
 ```bash
 make qdrant-up                                    # one-time

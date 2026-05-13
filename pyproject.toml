@@ -25,6 +25,7 @@ dependencies = [
     "pydantic>=2",
     "python-multipart",
     "sentence-transformers>=3",
+    "faster-whisper>=1.2.1",
 ]
 
 [project.optional-dependencies]

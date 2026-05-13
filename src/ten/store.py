@@ -26,6 +26,7 @@ class ClipPayload:
     duration: float
     caption: str
     thumb_path: str
+    transcript: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -37,6 +38,7 @@ class ClipPayload:
             "duration": self.duration,
             "caption": self.caption,
             "thumb_path": self.thumb_path,
+            "transcript": self.transcript,
         }
 
 

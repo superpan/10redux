@@ -19,8 +19,17 @@ def index(
     folder: Path = typer.Argument(..., exists=True, file_okay=False, dir_okay=True),
     force: bool = typer.Option(False, "--force", help="Re-embed clips even if already indexed."),
     max_videos: Optional[int] = typer.Option(None, "--max-videos", help="Limit videos for testing."),
+    asr: bool = typer.Option(
+        False,
+        "--asr",
+        help="Enable Whisper transcripts (large-v3). Adds ~real-time per clip on GPU.",
+    ),
 ) -> None:
     """Walk FOLDER recursively, chunk videos, embed, and upsert to Qdrant."""
+    import os
+
+    if asr and os.environ.get("TEN_ASR_BACKEND", "").lower() in ("", "none"):
+        os.environ["TEN_ASR_BACKEND"] = "whisper"
     from .ingest import ingest_folder
 
     ingest_folder(folder.resolve(), force=force, max_videos=max_videos)
@@ -107,6 +116,11 @@ def clip(clip_id: str = typer.Argument(..., help="Clip id from `ten search` or `
     console.print()
     console.print("[bold]caption[/bold]")
     console.print(payload.get("caption", "—"))
+    transcript = payload.get("transcript", "")
+    if transcript:
+        console.print()
+        console.print("[bold]transcript[/bold]")
+        console.print(transcript)
 
 
 @app.command()
@@ -157,6 +171,9 @@ def status() -> None:
         "vjepa_model",
         "vlm_model",
         "text_embed_model",
+        "asr_backend",
+        "asr_model",
+        "asr_language",
         "clip_seconds",
         "frames_per_clip",
         "device",
