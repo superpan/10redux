@@ -42,7 +42,17 @@ Smoke run over Big Buck Bunny, Sintel, Sintel trailer, and Charlie Chaplin's *Th
 
 All 7 queries from the smoke test returned a top hit from the correct source video.
 
-For the published benchmark number (MSR-VTT 1K-A, Recall@1 = 0.343), see [EVAL.md](EVAL.md).
+### Benchmark — MSR-VTT 1K-A
+
+Text → video retrieval over the standard 1000-video test split:
+
+| Recall@1 | Recall@5 | Recall@10 | Median rank |
+|---:|---:|---:|---:|
+| **0.343** | **0.553** | **0.651** | 4 |
+
+![MSR-VTT 1K-A: Recall@K curve and rank distribution](data/eval/msrvtt_latest.png)
+
+Above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0.43–0.55) — about what you'd expect for caption-mediated retrieval. Methodology, baselines, and how to reproduce: [EVAL.md](EVAL.md).
 
 ## How it works
 
