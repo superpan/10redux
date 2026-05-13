@@ -28,18 +28,34 @@ def index(
 
 @app.command()
 def search(
-    query: str = typer.Argument(..., help="Natural-language query."),
+    query: Optional[str] = typer.Argument(
+        None,
+        help="Natural-language query. Optional if --image/--video is given.",
+    ),
     limit: int = typer.Option(20, "--limit", "-n"),
-    image: Optional[Path] = typer.Option(None, "--image", help="Optional image-as-query (RRF-fused)."),
-    video: Optional[Path] = typer.Option(None, "--video", help="Optional video-as-query (RRF-fused)."),
+    image: Optional[Path] = typer.Option(None, "--image", help="Image-as-query (RRF-fused with text if both given)."),
+    video: Optional[Path] = typer.Option(None, "--video", help="Video-as-query (RRF-fused with text if both given)."),
 ) -> None:
-    """Search the index. Combine --image/--video with the text query for hybrid retrieval."""
+    """Search the index. Provide a text query, --image, --video, or any combination."""
+    if not any([query, image, video]):
+        console.print(
+            "[red]provide at least one of:[/red] QUERY  |  --image PATH  |  --video PATH"
+        )
+        raise typer.Exit(2)
     from .search import Searcher
 
     s = Searcher()
     hits = s.search(text=query, image_path=image, video_path=video, limit=limit)
 
-    table = Table(title=f'"{query}" — top {len(hits)}', show_lines=False)
+    title_parts: list[str] = []
+    if query:
+        title_parts.append(f'"{query}"')
+    if image:
+        title_parts.append(f"image:{image.name}")
+    if video:
+        title_parts.append(f"video:{video.name}")
+    title = " + ".join(title_parts) + f" — top {len(hits)}"
+    table = Table(title=title, show_lines=False)
     table.add_column("#", justify="right", style="dim")
     table.add_column("id", style="dim", no_wrap=True)
     table.add_column("score", justify="right")
@@ -67,10 +83,64 @@ def serve(
     port: int = typer.Option(CONFIG.port, "--port"),
     reload: bool = typer.Option(False, "--reload"),
 ) -> None:
-    """Run the FastAPI server (and serve the React UI if built into ui/dist)."""
+    """Run the FastAPI server (and serve the Next.js UI if built into ui/out)."""
     import uvicorn
 
     uvicorn.run("ten.api:app", host=host, port=port, reload=reload, log_level="info")
+
+
+@app.command()
+def clip(clip_id: str = typer.Argument(..., help="Clip id from `ten search` or `ten clips`.")) -> None:
+    """Show the full payload for a single clip (path, timestamps, caption, thumb)."""
+    from .store import Store
+
+    payload = Store().get(clip_id)
+    if not payload:
+        console.print("[red]clip not found[/red]")
+        raise typer.Exit(1)
+    table = Table(show_header=False, box=None)
+    table.add_column("", style="dim")
+    table.add_column("")
+    for k in ("clip_id", "video_name", "video_path", "t_start", "t_end", "duration", "thumb_path"):
+        table.add_row(k, str(payload.get(k, "—")))
+    console.print(table)
+    console.print()
+    console.print("[bold]caption[/bold]")
+    console.print(payload.get("caption", "—"))
+
+
+@app.command()
+def clips(
+    video: Optional[str] = typer.Option(
+        None, "--video", help="Filter by exact video filename (e.g. BigBuckBunny_480p.mov)."
+    ),
+    limit: int = typer.Option(25, "--limit", "-n"),
+) -> None:
+    """Enumerate indexed clips. Defaults to a 25-clip sample; use --video to filter."""
+    from .store import Store
+
+    rows = Store().list_clips(video_name=video, limit=limit)
+    if not rows:
+        msg = f"no clips found for video={video!r}" if video else "index is empty"
+        console.print(f"[yellow]{msg}[/yellow]")
+        return
+    title = f"clips (video={video})" if video else f"clips — first {len(rows)}"
+    table = Table(title=title, show_lines=False)
+    table.add_column("id", style="dim", no_wrap=True)
+    table.add_column("video")
+    table.add_column("t")
+    table.add_column("caption", overflow="fold")
+    for p in rows:
+        cap = p.get("caption", "")
+        if len(cap) > 100:
+            cap = cap[:100] + "…"
+        table.add_row(
+            p["clip_id"],
+            p["video_name"],
+            f"{p['t_start']:.1f}-{p['t_end']:.1f}s",
+            cap,
+        )
+    console.print(table)
 
 
 @app.command()

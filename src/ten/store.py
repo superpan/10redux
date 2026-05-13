@@ -125,6 +125,26 @@ class Store:
         )
         return res[0].payload if res else None
 
+    def list_clips(self, video_name: str | None = None, limit: int = 100) -> list[dict]:
+        """Enumerate clip payloads, optionally filtered by exact video filename.
+
+        Backed by Qdrant's scroll API. video_name isn't a payload-indexed field
+        (only video_path is), but for small collections (<10K) this filter is fine.
+        """
+        flt = None
+        if video_name:
+            flt = qm.Filter(
+                must=[qm.FieldCondition(key="video_name", match=qm.MatchValue(value=video_name))]
+            )
+        points, _ = self.client.scroll(
+            collection_name=CONFIG.visual_collection,
+            scroll_filter=flt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [p.payload for p in points]
+
     def stats(self) -> dict:
         out = {}
         for col in (CONFIG.visual_collection, CONFIG.text_collection):
