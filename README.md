@@ -9,7 +9,7 @@ Open-weight video search for large libraries.
 - **API + UI** — FastAPI + Next.js 15
 - **CLI** — `ten`
 
-> **Status: personal experiment.** Built quickly to validate that open-weight models can replace TwelveLabs-style hosted video search end-to-end. APIs may change without notice. No support promises.
+> **Status: personal experiment.** Exploring what video search looks like end-to-end with current open-weight models. APIs may change without notice. No support promises.
 
 ## Quickstart
 

@@ -26,7 +26,7 @@ Per-query results: [`data/eval/msrvtt_latest.json`](data/eval/msrvtt_latest.json
 
 This is **caption-mediated retrieval**: each video is captioned by Qwen3-VL at ingest, the caption is embedded by Qwen3-Embedding-0.6B, and queries match against caption vectors. V-JEPA 2 visual embeddings are also indexed but not used for text queries (V-JEPA isn't text-aligned).
 
-For comparison, where 0.343 R@1 sits in the published landscape:
+For context, where 0.343 R@1 sits among published open results:
 
 | approach | R@1 (MSR-VTT 1K-A) | type |
 |---|---|---|
@@ -35,9 +35,8 @@ For comparison, where 0.343 R@1 sits in the published landscape:
 | **ten (Qwen3-VL captions + text retriever)** | **0.343** | **caption-mediated** |
 | Frozen-in-Time / X-Pool / X-CLIP | 0.43 – 0.49 | end-to-end, video-text fine-tuned |
 | InternVideo2 (full ZSL) | ~0.51 | end-to-end |
-| TwelveLabs Marengo (proprietary) | ~0.55 – 0.60 | end-to-end |
 
-We're competitive with frozen CLIP-based retrievers but below dedicated end-to-end video-text models — expected for an indirect (caption → text-similarity) approach. Median rank of 4 means the right video is usually in the top few; the long tail (mean rank 40.5) is dominated by ambiguous captions like "cartoon show for kids" or "a young man is touching a young girls back" where many candidates fit.
+The point is not to chase the leaderboard but to see what a fully open-weight, captions-as-the-bridge architecture lands at without any video-text fine-tuning. Median rank of 4 means the right video is usually in the top few; the long tail (mean rank 40.5) is dominated by ambiguous captions like "cartoon show for kids" or "a young man is touching a young girls back" where many candidates fit.
 
 ### Methodology
 
