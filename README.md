@@ -11,9 +11,33 @@ Open-weight video search for large libraries.
 
 > **Status: personal experiment.** Exploring what video search looks like end-to-end with current open-weight models. APIs may change without notice. No support promises.
 
+## Install — CLI only
+
+For read-only use of the CLI against a Qdrant (and optionally vLLM) you already have running — yours on another box, a colleague's, etc. Skip to [Quickstart](#quickstart) if you want to run the full stack locally.
+
+```bash
+git clone https://github.com/superpan/ten.git
+cd ten
+uv tool install .                                 # installs `ten` globally
+
+# point at the right services; localhost defaults work if the stack is local
+export TEN_QDRANT_URL=http://your-host:6333
+# optional: route captions/summaries through a remote vLLM
+export TEN_VLM_BACKEND=vllm
+export TEN_VLLM_URL=http://your-host:8000/v1
+
+ten search "a dragon breathing fire"              # works from any directory
+ten clip <id>
+ten summary <id> -d narrative
+```
+
+Thumbnail cache defaults to `~/.local/share/ten` (XDG-style), so it doesn't depend on cwd.
+
+Upgrade: `uv tool install --reinstall .`. Uninstall: `uv tool uninstall ten`.
+
 ## Quickstart
 
-Roughly 10 minutes of human time + 30 minutes of model-download + ingest time, on a single CUDA GPU with ≥24 GB VRAM. Hand-built smoke set is 4 public-domain videos (~1.5 GB).
+Run the full stack locally. Roughly 10 minutes of human time + 30 minutes of model-download + ingest time, on a single CUDA GPU with ≥24 GB VRAM. Hand-built smoke set is 4 public-domain videos (~1.5 GB).
 
 ```bash
 make ffmpeg                              # one-time, requires sudo
@@ -77,26 +101,45 @@ The two-collection layout means a text-aligned video encoder is unnecessary — 
 
 See [Hardware notes](#hardware-notes) for Blackwell / DGX Spark specifics.
 
-## Setup your own library
+## Development
 
-`make fetch-smoke` is for the quickstart only. Point at your own videos with:
+Run the full stack locally and modify it. The CLI-only install above is enough if you don't need this.
+
+```bash
+git clone https://github.com/superpan/ten.git
+cd ten
+make ffmpeg                                # one-time, requires sudo
+make bootstrap                             # uv sync + pnpm install + install-pc
+make qdrant-up                             # Qdrant in Docker, stays up across sessions
+```
+
+Inner loop:
+
+```bash
+make dev                                   # process-compose TUI: API only
+make dev-ui                                # process-compose TUI: API + Next dev :3000
+make serve-reload                          # API w/ --reload (no TUI)
+make ui-dev                                # Next dev w/o API supervision
+make ui-build                              # static export -> ui/out
+```
+
+Ingesting your own videos:
 
 ```bash
 make index FOLDER=/path/to/your/videos
 ```
 
-Ingest is recursive and **resumable**: clip ids are deterministic hashes of `(video_path, t_start, t_end)`, so re-running only embeds new clips. Failures on individual videos don't abort the run.
+Ingest is recursive and **resumable** — clip ids are deterministic hashes of `(video_path, t_start, t_end)`, so re-running only embeds new clips. Failures on individual videos don't abort the run.
 
-## Local dev
-
-For a single TUI with both api + UI (one Ctrl-C tears them down, color-coded interleaved logs):
+Other workflows:
 
 ```bash
-make qdrant-up    # once per boot
-make dev-ui       # api + Next.js dev server  ->  http://127.0.0.1:3000
+make lint   |   make format                # ruff
+make eval                                  # MSR-VTT 1K-A retrieval eval — see EVAL.md
+make help                                  # full Makefile menu
 ```
 
-`make dev` (api only) is also there if you don't need UI hot-reload. Direct CLI usage (`uv run ten ...`, `make serve`, `make ui-dev`) still works — see `make help` and `uv run ten --help` for the full surface.
+Direct `uv run ten …` works from anywhere inside the repo; see `uv run ten --help` for the full CLI surface.
 
 ## Configuration
 
@@ -104,14 +147,14 @@ All settings are env vars (see `src/ten/config.py`):
 
 | var | default | meaning |
 |---|---|---|
-| `TEN_DATA_DIR` | `.ten` | Where thumbnails live |
+| `TEN_DATA_DIR` | `~/.local/share/ten` | Where thumbnails live (XDG-style; set to `.ten` for the old project-relative behavior) |
 | `TEN_QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint |
 | `TEN_VJEPA_MODEL` | `facebook/vjepa2-vitl-fpc16-256-ssv2` | Visual encoder |
 | `TEN_VLM_MODEL` | `Qwen/Qwen3-VL-8B-Instruct` | Captioner / summarizer |
 | `TEN_TEXT_EMBED_MODEL` | `Qwen/Qwen3-Embedding-0.6B` | Caption embedder |
 | `TEN_CLIP_SECONDS` | `10` | Clip window length |
 | `TEN_CLIP_OVERLAP` | `1` | Overlap between adjacent clips |
-| `TEN_FRAMES_PER_CLIP` | `16` | Frames sampled per clip |
+| `TEN_FRAMES_PER_CLIP` | `8` | Frames sampled per clip (bump to 16 for motion-heavy footage at +~17% ingest cost) |
 | `TEN_FRAME_RESIZE` | `256` | Short-side resize before encoding |
 | `TEN_DEVICE` | `cuda` | Torch device |
 | `TEN_DTYPE` | `bfloat16` | Model dtype |

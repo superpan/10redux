@@ -11,7 +11,13 @@ def _env(key: str, default: str) -> str:
 
 @dataclass
 class Config:
-    data_dir: Path = field(default_factory=lambda: Path(_env("TEN_DATA_DIR", ".ten")).resolve())
+    # XDG-style default so `uv tool install .` works from any directory.
+    # Override via TEN_DATA_DIR=. to keep the previous project-relative behavior.
+    data_dir: Path = field(
+        default_factory=lambda: Path(
+            _env("TEN_DATA_DIR", str(Path.home() / ".local" / "share" / "ten"))
+        ).resolve()
+    )
     qdrant_url: str = field(default_factory=lambda: _env("TEN_QDRANT_URL", "http://localhost:6333"))
     qdrant_api_key: str | None = field(default_factory=lambda: os.environ.get("TEN_QDRANT_API_KEY"))
 
