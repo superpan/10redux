@@ -56,8 +56,14 @@ class Searcher:
         image_path: Path | None = None,
         video_path: Path | None = None,
         limit: int = 20,
-        per_source: int = 50,
+        per_source: int | None = None,
     ) -> list[Hit]:
+        # per_source is the per-collection fetch depth. Must be at least `limit`,
+        # otherwise rankings deeper than 50 disappear. Default to max(limit, 50).
+        if per_source is None:
+            per_source = max(50, limit)
+        elif per_source < limit:
+            per_source = limit
         rank_lists: list[list[tuple[str, dict]]] = []
 
         if text:

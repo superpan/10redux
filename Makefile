@@ -52,8 +52,17 @@ services-down: ## Stop everything Docker-managed
 
 ##@ Datasets
 
-fetch-smoke: ## Download 5 public-domain videos to ./videos/smoke for smoke testing
+fetch-smoke: ## Download 4 public-domain videos to ./videos/smoke for smoke testing
 	uv run python tools/fetch_smoke.py
+
+fetch-msrvtt: ## Download MSR-VTT (videos + 1K-A test split) for retrieval eval (~2.2 GB)
+	uv run python tools/fetch_msrvtt.py
+
+eval: ## Run MSR-VTT 1K-A text->video retrieval eval; writes data/eval/msrvtt_<ts>.json
+	uv run python tools/eval_msrvtt.py
+
+ingest-msrvtt: ## Ingest MSR-VTT with one-clip-per-video chunking (use after fetch-msrvtt)
+	TEN_CLIP_SECONDS=60 TEN_CLIP_OVERLAP=0 uv run ten index ./videos/msrvtt
 
 ##@ Index / search
 
@@ -120,7 +129,7 @@ help: ## Show this help
 
 .PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
-        fetch-smoke \
+        fetch-smoke fetch-msrvtt eval ingest-msrvtt \
         index index-vllm reindex smoke search status \
         serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

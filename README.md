@@ -42,6 +42,8 @@ Smoke run over Big Buck Bunny, Sintel, Sintel trailer, and Charlie Chaplin's *Th
 
 All 7 queries from the smoke test returned a top hit from the correct source video.
 
+For the published benchmark number (MSR-VTT 1K-A, Recall@1 = 0.343), see [EVAL.md](EVAL.md).
+
 ## How it works
 
 1. **Index.** Each video is split into overlapping ~10 s clips. For every clip:

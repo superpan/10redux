@@ -28,7 +28,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest"]
+dev = [
+    "ruff",
+    "pytest",
+    "matplotlib>=3.10.9",
+]
 
 [project.scripts]
 ten = "ten.cli:app"

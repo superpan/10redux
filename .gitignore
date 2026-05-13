@@ -11,7 +11,8 @@ wheels/
 
 # Project
 .ten/
-data/
+data/*
+!data/eval/
 qdrant_storage/
 videos/
 logs/
