@@ -8,21 +8,20 @@ The standard 1K-A protocol: 1000 test videos, 1 caption each, retrieve the match
 
 ### Result
 
-| metric | value |
-|---|---|
-| Recall@1   | **0.338** |
-| Recall@5   | **0.559** |
-| Recall@10  | **0.657** |
-| Median rank | 4 |
-| Mean rank   | 44.0 |
-| Queries (n) | 1000 |
-| Wall time   | 44 s |
+Two configurations worth knowing about — best baseline and best with optimization stack on:
+
+| config | R@1 | R@5 | R@10 | Median | wall (eval) |
+|---|---|---|---|---|---|
+| visual-only, no rerank (baseline) | 0.338 | 0.559 | 0.651 | 4 | 44 s |
+| **+ ASR + rerank (best)** | **0.360** | **0.569** | **0.660** | **3** | 18 m |
+
+Both reproducible from the repo. Full 4-cell ablation in the [Optimization](#optimization-stages) section below.
+
+![MSR-VTT 1K-A: Recall@K + rank distribution (ASR + rerank)](data/eval/msrvtt_latest.png)
+
+Per-query results: [`data/eval/msrvtt_latest.json`](data/eval/msrvtt_latest.json) (ASR+rerank); other configs in `data/eval/msrvtt_*.json`.
 
 (Earlier 16-frame run got 0.343 / 0.553 / 0.651 — within noise. We use 8 frames per clip by default; see "Frame budget" below.)
-
-![MSR-VTT 1K-A: Recall@K + rank distribution](data/eval/msrvtt_latest.png)
-
-Per-query results: [`data/eval/msrvtt_latest.json`](data/eval/msrvtt_latest.json).
 
 ### How to read it
 

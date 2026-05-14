@@ -13,9 +13,13 @@ import numpy as np
 
 from .embed_text import TextEmbedder
 from .embed_video import VideoEmbedder
+from .rerank import RerankerProtocol, make_reranker
 from .store import Store
 from .video import Clip, sample_clip_frames
 from .config import CONFIG
+
+
+_UNSET = object()
 
 
 @dataclass
@@ -49,6 +53,14 @@ class Searcher:
         self.store = Store()
         self.text_embedder = TextEmbedder()
         self.video_embedder = VideoEmbedder()
+        # Lazy: reranker is only loaded if TEN_RERANKER_BACKEND is set.
+        self._reranker: RerankerProtocol | None | object = _UNSET
+
+    @property
+    def reranker(self) -> RerankerProtocol | None:
+        if self._reranker is _UNSET:
+            self._reranker = make_reranker()
+        return self._reranker  # type: ignore[return-value]
 
     def search(
         self,
@@ -60,16 +72,24 @@ class Searcher:
     ) -> list[Hit]:
         # per_source is the per-collection fetch depth. Must be at least `limit`,
         # otherwise rankings deeper than 50 disappear. Default to max(limit, 50).
+        # When a reranker is enabled, also fetch at least reranker_top_k so the
+        # reranker has a meaningful candidate pool to rescore.
         if per_source is None:
             per_source = max(50, limit)
         elif per_source < limit:
             per_source = limit
+        if self.reranker is not None and text:
+            per_source = max(per_source, CONFIG.reranker_top_k)
         rank_lists: list[list[tuple[str, dict]]] = []
 
         if text:
             qv = self.text_embedder.embed_query(text)
             text_hits = self.store.search_text(qv, limit=per_source)
-            rank_lists.append([(h.payload["clip_id"], h.payload) for h in text_hits])
+            ranked_text = [(h.payload["clip_id"], h.payload) for h in text_hits]
+            # Cross-encoder rerank rescues coarse bi-encoder ordering for the text side.
+            if self.reranker is not None:
+                ranked_text = self._rerank(text, ranked_text)
+            rank_lists.append(ranked_text)
 
         if image_path is not None or video_path is not None:
             frames = self._frames_from_query(image_path, video_path)
@@ -92,6 +112,19 @@ class Searcher:
             ]
 
         return _rrf(rank_lists)[:limit]
+
+    def _rerank(
+        self, query: str, ranked: list[tuple[str, dict]]
+    ) -> list[tuple[str, dict]]:
+        top_k = CONFIG.reranker_top_k
+        head, tail = ranked[:top_k], ranked[top_k:]
+        # Use the same text the bi-encoder embedded: caption (+transcript if any).
+        texts = [
+            f"{p['caption']}\n{p.get('transcript', '')}".strip() for _, p in head
+        ]
+        scores = self.reranker.score(query, texts)
+        ordered = sorted(zip(head, scores), key=lambda x: -x[1])
+        return [item for item, _s in ordered] + tail
 
     def _frames_from_query(self, image_path: Path | None, video_path: Path | None) -> np.ndarray:
         if image_path is not None:

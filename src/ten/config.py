@@ -46,6 +46,17 @@ class Config:
         default_factory=lambda: _env("TEN_ASR_COMPUTE_TYPE", "float16")
     )
 
+    # Reranker (off by default — opt-in via TEN_RERANKER_BACKEND=crossencoder).
+    # When enabled, the bi-encoder's per_source results are re-scored by a
+    # cross-encoder before the limit cut.
+    reranker_backend: str = field(
+        default_factory=lambda: _env("TEN_RERANKER_BACKEND", "none")
+    )
+    reranker_model: str = field(
+        default_factory=lambda: _env("TEN_RERANKER_MODEL", "Qwen/Qwen3-Reranker-0.6B")
+    )
+    reranker_top_k: int = int(_env("TEN_RERANKER_TOP_K", "100"))
+
     clip_seconds: float = float(_env("TEN_CLIP_SECONDS", "10"))
     clip_overlap: float = float(_env("TEN_CLIP_OVERLAP", "1"))
     # 8 frames matches V-JEPA 2's spatial-temporal budget well enough and

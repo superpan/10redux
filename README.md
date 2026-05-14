@@ -69,15 +69,16 @@ All 7 queries from the smoke test returned a top hit from the correct source vid
 
 ### Benchmark — MSR-VTT 1K-A
 
-Text → video retrieval over the standard 1000-video test split:
+Text → video retrieval over the standard 1000-video test split. Two operating points:
 
-| Recall@1 | Recall@5 | Recall@10 | Median rank |
-|---:|---:|---:|---:|
-| **0.343** | **0.553** | **0.651** | 4 |
+| config | Recall@1 | Recall@5 | Recall@10 | Median | added cost |
+|---|---:|---:|---:|---:|---|
+| visual-only, no rerank (baseline) | 0.338 | 0.559 | 0.651 | 4 | — |
+| **+ ASR + rerank (best)** | **0.360** | **0.569** | **0.660** | **3** | ~2× ingest, ~1 s query |
 
 ![MSR-VTT 1K-A: Recall@K curve and rank distribution](data/eval/msrvtt_latest.png)
 
-Above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0.43–0.55) — about what you'd expect for caption-mediated retrieval. Methodology, baselines, and how to reproduce: [EVAL.md](EVAL.md).
+Both above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0.43–0.55) — about what you'd expect for caption-mediated retrieval. Methodology, full 2×2 ablation, and how to reproduce: [EVAL.md](EVAL.md).
 
 ## How it works
 
@@ -158,6 +159,9 @@ All settings are env vars (see `src/ten/config.py`):
 | `TEN_ASR_BACKEND` | `none` | `none` / `whisper` (HF transformers) / `fasterwhisper` |
 | `TEN_ASR_MODEL` | `large-v3` | Whisper variant — `tiny/base/small/medium/large-v3/large-v3-turbo` or full HF id |
 | `TEN_ASR_LANGUAGE` | *(auto)* | Force a language code (`en`, `es`, …) instead of auto-detect |
+| `TEN_RERANKER_BACKEND` | `none` | `none` / `crossencoder` — enable Qwen3-Reranker over the bi-encoder's top-K |
+| `TEN_RERANKER_MODEL` | `Qwen/Qwen3-Reranker-0.6B` | Cross-encoder model id; works with any sentence-transformers CrossEncoder-compatible model |
+| `TEN_RERANKER_TOP_K` | `100` | Bi-encoder candidates to rescore per query. Lower = faster query (try 25 for ~4× speedup) |
 | `TEN_CLIP_SECONDS` | `10` | Clip window length |
 | `TEN_CLIP_OVERLAP` | `1` | Overlap between adjacent clips |
 | `TEN_FRAMES_PER_CLIP` | `8` | Frames sampled per clip (bump to 16 for motion-heavy footage at +~17% ingest cost) |
