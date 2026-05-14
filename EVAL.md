@@ -74,7 +74,9 @@ DGX Spark — NVIDIA GB10 (Grace Blackwell, sm_121, aarch64), CUDA 13.
 
 ## ASR — voice-tag retrieval
 
-Smoke test on Sintel (99 clips, ~11 min vLLM + Whisper-large-v3 ingest, 6.7 s/clip). Queries that target spoken dialogue with no relation to visible content all hit the correct clip:
+### Voice-tag smoke (Sintel)
+
+99-clip smoke run on Sintel proves the basic capability — queries that quote or paraphrase spoken dialogue with no visual relationship hit the right clip:
 
 | query (no visual cue) | top hit transcript |
 |---|---|
@@ -83,13 +85,60 @@ Smoke test on Sintel (99 clips, ~11 min vLLM + Whisper-large-v3 ingest, 6.7 s/cl
 | "shed innocent blood" | "It has a dark past. It has shed much innocent blood." |
 | "I'm searching for someone dear" | "I'm searching for someone. Someone very dear? A kindred spirit? A dragon." |
 
-Visual queries ("dragon", "warrior fighting in a desert canyon") rank the correct clips at #1 unchanged — adding ASR doesn't regress the caption side.
+Visual queries ("dragon", "warrior fighting in a desert canyon") rank the correct clips at #1 unchanged — adding ASR doesn't regress the caption side on cherry-picked dialogue clips.
+
+### Controlled re-eval on MSR-VTT 1K-A — ASR is a wash
+
+Re-ingested all 1000 test videos with ASR enabled (28m15s wall, basically same as visual-only — Whisper overlapped with vLLM caption batches). Re-ran the same 1000-query eval.
+
+| metric | visual-only | +ASR | Δ |
+|---|---|---|---|
+| Recall@1 | 0.338 | 0.325 | **−0.013** |
+| Recall@5 | 0.559 | 0.559 | 0.000 |
+| Recall@10 | 0.651 | 0.640 | −0.011 |
+| Median rank | 4 | 4 | 0 |
+| Mean rank | 44.0 | 45.5 | +1.5 |
+
+Per-query delta: 334 queries improved (avg +36 ranks), 346 regressed (avg −39 ranks), 320 unchanged. **Net zero, slight skew to regression.** Per-query results in `data/eval/msrvtt_visual_only.json` and `data/eval/msrvtt_latest.json`.
+
+By query category (caption keyword bucket):
+
+| category | n | helped % | hurt % |
+|---|---|---|---|
+| music | 116 | 39.7% | 37.1% |
+| **speech** | 203 | **32.0%** | **41.9%** |
+| sport | 140 | 30.0% | 37.9% |
+| other | 541 | 33.5% | 30.5% |
+
+The counter-intuitive finding: speech-related queries get *hurt* more than helped. The mechanism is visible in the largest regressions:
+
+- "bbc news story about military crackdown" → rank 22 → 858  *(transcript fills with specific names/places that don't match the abstract caption)*
+- "tv show presenters speak about will smith and other actors" → rank 219 → 550
+- "someone speaking about a violent act regarding the police" → rank 12 → 511
+
+Largest improvements show the symmetric mechanism — when the query *quotes or paraphrases* the audio, ASR is a big win:
+
+- "a man is singing and standing in the road" → rank 408 → 69 (+339)
+- "anchor talking about a shows" → rank 651 → 325 (+326)
+- "shania twain does a closeup for her video" → rank 400 → 113 (+287; lyrics match)
+
+### Verdict
+
+ASR stays **opt-in** by default. Use it when:
+
+- Your library is dialogue-heavy (lectures, podcasts, interviews, news) **and** queries reference what is said.
+- You're building a "voice-tag" UI affordance where users explicitly search transcripts.
+
+Skip it when:
+
+- Captions describe visual content abstractly and queries follow that style (the MSR-VTT case).
+- The library is mostly music or B-roll — Whisper hallucinations (`¶¶¶`, repetition loops) become noise without compensating signal.
 
 ### ASR caveats
 
 - **Music → `¶¶¶…`** : Whisper transcribes instrumental sections as repeated note characters. The VAD filter helps but doesn't catch all of them.
 - **Repetition loops** : on quiet / ambiguous audio, Whisper sometimes outputs the same phrase ("I'm sorry. I'm sorry…") for the entire clip. Known Whisper failure mode.
-- These pollute search slightly: a query like "music" or "I'm sorry" can rank these glitchy clips highly. For most real queries the impact is minor; for serious deployment, post-process transcripts to detect and zero out clips where >50% of tokens are repeated.
+- For serious deployment with ASR on, post-process transcripts to detect and drop clips where >50% of tokens are repeated. Likely to recover some of the −0.013 R@1 regression.
 
 ## Reproduce
 

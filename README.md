@@ -94,7 +94,7 @@ Above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0
 
 The two-collection layout means a text-aligned video encoder is unnecessary — the LLM does the text alignment by writing captions, and you still get fast vector retrieval at query time.
 
-**ASR — opt-in.** Run `ten index --asr` (or `make index-asr FOLDER=…`) to add a Whisper transcript per clip. The transcript is appended to the caption before embedding, so the same `ten search` text query catches both visible content and spoken dialogue. Roughly ~real-time on GPU with Whisper-large-v3, so ASR-enabled ingest is ~3× wall time vs visual-only. See [EVAL.md](EVAL.md#asr--voice-tag-retrieval) for voice-tag examples and known Whisper artifacts (music transcribed as `¶¶¶`, occasional repetition loops on quiet audio).
+**ASR — opt-in (and intentionally so).** Run `ten index --asr` (or `make index-asr FOLDER=…`) to add a Whisper transcript per clip. Transcript is appended to the caption before text embedding. Use it when your library is dialogue-heavy and queries reference what is *said*; skip it for visual search of mixed content. On MSR-VTT 1K-A, ASR was a near-zero-sum shuffle (R@1 0.338 → 0.325) — it helps when the query quotes the audio, hurts when the caption is abstract. See [EVAL.md](EVAL.md#asr--voice-tag-retrieval) for the full breakdown.
 
 ## Requirements
 
