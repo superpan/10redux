@@ -28,5 +28,5 @@ ui/dist/
 .idea/
 .vscode/
 
-# Claude Code per-user settings (CLAUDE.md and AGENT.md are tracked)
-.claude/settings.local.json
+# Claude Code per-user state (CLAUDE.md and AGENT.md at repo root are tracked)
+.claude/
