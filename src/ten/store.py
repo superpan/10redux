@@ -1,8 +1,10 @@
-"""Qdrant store: two collections sharing payloads (visual + text).
+"""Qdrant store: up to three collections sharing payloads (visual + text + audio).
 
 Each clip has a stable string id (blake2b hex). We store it as the Qdrant
 point id (UUID-shaped). Payload is identical across collections so a hit in
-either side can render the same UI card.
+any side can render the same UI card.
+
+The `ten_audio` collection is only created when CLAP embeddings are enabled.
 """
 from __future__ import annotations
 
@@ -51,7 +53,12 @@ class Store:
     def __init__(self) -> None:
         self.client = QdrantClient(url=CONFIG.qdrant_url, api_key=CONFIG.qdrant_api_key)
 
-    def ensure_collections(self, visual_dim: int, text_dim: int) -> None:
+    def ensure_collections(
+        self,
+        visual_dim: int,
+        text_dim: int,
+        audio_dim: int | None = None,
+    ) -> None:
         existing = {c.name for c in self.client.get_collections().collections}
         if CONFIG.visual_collection not in existing:
             self.client.create_collection(
@@ -63,8 +70,16 @@ class Store:
                 collection_name=CONFIG.text_collection,
                 vectors_config=qm.VectorParams(size=text_dim, distance=qm.Distance.COSINE),
             )
-        # Index video_path so we can filter by source.
-        for col in (CONFIG.visual_collection, CONFIG.text_collection):
+        if audio_dim is not None and CONFIG.audio_collection not in existing:
+            self.client.create_collection(
+                collection_name=CONFIG.audio_collection,
+                vectors_config=qm.VectorParams(size=audio_dim, distance=qm.Distance.COSINE),
+            )
+        # Index video_path on every active collection so we can filter by source.
+        cols = [CONFIG.visual_collection, CONFIG.text_collection]
+        if audio_dim is not None:
+            cols.append(CONFIG.audio_collection)
+        for col in cols:
             try:
                 self.client.create_payload_index(
                     collection_name=col,
@@ -79,6 +94,7 @@ class Store:
         payloads: list[ClipPayload],
         visual_vecs: np.ndarray,
         text_vecs: np.ndarray,
+        audio_vecs: np.ndarray | None = None,
     ) -> None:
         ids = [clip_id_to_uuid(p.clip_id) for p in payloads]
         payload_dicts = [p.to_dict() for p in payloads]
@@ -90,6 +106,11 @@ class Store:
             collection_name=CONFIG.text_collection,
             points=qm.Batch(ids=ids, vectors=text_vecs.tolist(), payloads=payload_dicts),
         )
+        if audio_vecs is not None:
+            self.client.upsert(
+                collection_name=CONFIG.audio_collection,
+                points=qm.Batch(ids=ids, vectors=audio_vecs.tolist(), payloads=payload_dicts),
+            )
 
     def has_clip(self, clip_id: str) -> bool:
         try:
@@ -114,6 +135,14 @@ class Store:
     def search_text(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
         return self.client.query_points(
             collection_name=CONFIG.text_collection,
+            query=vec.tolist(),
+            limit=limit,
+            with_payload=True,
+        ).points
+
+    def search_audio(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
+        return self.client.query_points(
+            collection_name=CONFIG.audio_collection,
             query=vec.tolist(),
             limit=limit,
             with_payload=True,

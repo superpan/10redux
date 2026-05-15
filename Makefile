@@ -58,8 +58,22 @@ fetch-smoke: ## Download 4 public-domain videos to ./videos/smoke for smoke test
 fetch-msrvtt: ## Download MSR-VTT (videos + 1K-A test split) for retrieval eval (~2.2 GB)
 	uv run python tools/fetch_msrvtt.py
 
+fetch-qvhighlights: ## Download QVHighlights val split via yt-dlp (hours; ~1500 vids, ~10-20% will fail)
+	uv run python tools/fetch_qvhighlights.py
+
 eval: ## Run MSR-VTT 1K-A text->video retrieval eval; writes data/eval/msrvtt_<ts>.json
 	uv run python tools/eval_msrvtt.py
+
+eval-qvh: ## Run QVHighlights open-set moment retrieval eval (CLAP toggled by TEN_CLAP_BACKEND)
+	uv run python tools/eval_qvhighlights.py
+
+eval-qvh-ablation: ## Run QVH eval twice: CLAP off then CLAP on. Writes data/eval/qvhighlights_clap_{off,on}.json
+	TEN_CLAP_BACKEND=none uv run python tools/eval_qvhighlights.py --tag clap_off
+	TEN_CLAP_BACKEND=clap uv run python tools/eval_qvhighlights.py --tag clap_on
+
+bench: ## Per-stage micro-benchmarks (P50/P95/P99). Set env vars to time enabled backends.
+	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_RERANKER_BACKEND=crossencoder \
+	  uv run python tools/bench.py
 
 ingest-msrvtt: ## Ingest MSR-VTT with one-clip-per-video chunking (use after fetch-msrvtt)
 	TEN_CLIP_SECONDS=60 TEN_CLIP_OVERLAP=0 uv run ten index ./videos/msrvtt
@@ -74,6 +88,13 @@ index-vllm: ## Ingest using the vLLM captioner backend (~3-5x faster)
 
 index-asr: ## Ingest with Whisper ASR transcripts (FOLDER=..., uses vLLM if available)
 	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper uv run ten index $(FOLDER) --asr
+
+index-clap: ## Ingest with LAION CLAP audio embeddings (FOLDER=..., uses vLLM if available)
+	TEN_VLM_BACKEND=vllm TEN_CLAP_BACKEND=clap uv run ten index $(FOLDER) --clap
+
+index-full: ## Ingest with vLLM + ASR + CLAP — all signals on (FOLDER=...)
+	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_CLAP_BACKEND=clap \
+	  uv run ten index $(FOLDER) --asr --clap
 
 reindex: ## Re-embed every clip in FOLDER, ignoring existing ids
 	uv run ten index $(FOLDER) --force
@@ -132,7 +153,7 @@ help: ## Show this help
 
 .PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
-        fetch-smoke fetch-msrvtt eval ingest-msrvtt \
-        index index-vllm index-asr reindex smoke search status \
+        fetch-smoke fetch-msrvtt fetch-qvhighlights eval eval-qvh eval-qvh-ablation bench ingest-msrvtt \
+        index index-vllm index-asr index-clap index-full reindex smoke search status \
         serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

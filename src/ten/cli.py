@@ -24,12 +24,19 @@ def index(
         "--asr",
         help="Enable Whisper transcripts (large-v3). Adds ~real-time per clip on GPU.",
     ),
+    clap: bool = typer.Option(
+        False,
+        "--clap",
+        help="Enable LAION CLAP audio embeddings (third Qdrant collection: ten_audio).",
+    ),
 ) -> None:
     """Walk FOLDER recursively, chunk videos, embed, and upsert to Qdrant."""
     import os
 
     if asr and os.environ.get("TEN_ASR_BACKEND", "").lower() in ("", "none"):
         os.environ["TEN_ASR_BACKEND"] = "whisper"
+    if clap and os.environ.get("TEN_CLAP_BACKEND", "").lower() in ("", "none"):
+        os.environ["TEN_CLAP_BACKEND"] = "clap"
     from .ingest import ingest_folder
 
     ingest_folder(folder.resolve(), force=force, max_videos=max_videos)

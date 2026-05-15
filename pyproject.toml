@@ -26,6 +26,7 @@ dependencies = [
     "python-multipart",
     "sentence-transformers>=3",
     "faster-whisper>=1.2.1",
+    "soundfile>=0.13.1",
 ]
 
 [project.optional-dependencies]

@@ -13,14 +13,17 @@ from pathlib import Path
 from .video import Clip
 
 
-def extract_audio(clip: Clip, dest: Path) -> bool:
-    """Extract `clip`'s audio range to `dest` as 16 kHz mono WAV.
+def extract_audio(clip: Clip, dest: Path, sample_rate: int = 16000) -> bool:
+    """Extract `clip`'s audio range to `dest` as `sample_rate` mono WAV.
+
+    Whisper wants 16 kHz; CLAP wants 48 kHz. Pass the right sample_rate so we
+    don't have to resample in Python.
 
     Returns True on success, False if the source has no audio stream or ffmpeg
-    failed (treated as "no transcript available").
+    failed (treated as "no audio available").
     """
     if shutil.which("ffmpeg") is None:
-        raise RuntimeError("ffmpeg not on PATH; install it (`make ffmpeg`) to enable ASR")
+        raise RuntimeError("ffmpeg not on PATH; install it (`make ffmpeg`)")
     duration = clip.t_end - clip.t_start
     dest.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -39,7 +42,7 @@ def extract_audio(clip: Clip, dest: Path) -> bool:
         "-ac",
         "1",
         "-ar",
-        "16000",
+        str(sample_rate),
         "-f",
         "wav",
         str(dest),

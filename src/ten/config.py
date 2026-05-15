@@ -23,6 +23,7 @@ class Config:
 
     visual_collection: str = "ten_visual"
     text_collection: str = "ten_text"
+    audio_collection: str = "ten_audio"
 
     vjepa_model: str = field(
         default_factory=lambda: _env("TEN_VJEPA_MODEL", "facebook/vjepa2-vitl-fpc16-256-ssv2")
@@ -56,6 +57,19 @@ class Config:
         default_factory=lambda: _env("TEN_RERANKER_MODEL", "Qwen/Qwen3-Reranker-0.6B")
     )
     reranker_top_k: int = int(_env("TEN_RERANKER_TOP_K", "100"))
+
+    # CLAP audio embeddings (off by default — opt-in via TEN_CLAP_BACKEND=clap).
+    # Adds a third Qdrant collection (ten_audio). Search uses CLAP as a bounded
+    # post-fusion reranker (not a peer RRF source — equal-weight 3-way RRF
+    # regressed retrieval in the QVHighlights pilot because CLAP's text encoder
+    # is trained for audio alignment, not general semantics).
+    clap_backend: str = field(default_factory=lambda: _env("TEN_CLAP_BACKEND", "none"))
+    clap_model: str = field(
+        default_factory=lambda: _env("TEN_CLAP_MODEL", "laion/clap-htsat-fused")
+    )
+    audio_rerank_top_k: int = int(_env("TEN_AUDIO_RERANK_TOP_K", "30"))
+    audio_rerank_threshold: float = float(_env("TEN_AUDIO_RERANK_THRESHOLD", "0.30"))
+    audio_rerank_weight: float = float(_env("TEN_AUDIO_RERANK_WEIGHT", "0.03"))
 
     clip_seconds: float = float(_env("TEN_CLIP_SECONDS", "10"))
     clip_overlap: float = float(_env("TEN_CLIP_OVERLAP", "1"))

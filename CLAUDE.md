@@ -18,7 +18,8 @@
 | Captions / summaries | Qwen3-VL-8B-Instruct | `src/ten/caption.py` |
 | ASR (opt-in) | Whisper-large-v3 via HF transformers (default) or faster-whisper | `src/ten/asr.py`, `src/ten/audio.py` |
 | Caption embeddings | Qwen3-Embedding-0.6B (sentence-transformers) | `src/ten/embed_text.py` |
-| Vector store | Qdrant (two collections, RRF-fused) | `src/ten/store.py`, `src/ten/search.py` |
+| Audio embeddings (opt-in) | LAION CLAP (`laion/clap-htsat-fused`) — bounded post-fusion reranker | `src/ten/embed_audio.py` |
+| Vector store | Qdrant (2–3 collections; text+visual RRF-fused, audio reranks the head) | `src/ten/store.py`, `src/ten/search.py` |
 | Ingest orchestrator | PyAV chunking → batched embed → upsert | `src/ten/ingest.py` |
 | HTTP API + Range stream | FastAPI | `src/ten/api.py` |
 | CLI | typer, entry point `ten` | `src/ten/cli.py` |
@@ -36,7 +37,8 @@ When adding a new backend, implement `CaptionerProtocol` and register it in `mak
 ## Conventions
 
 - **Clip ids** are deterministic `blake2b(video_path | t_start | t_end)` hashes — see `Clip.clip_id` in `src/ten/video.py`. They map to Qdrant point ids via `clip_id_to_uuid`. This is what makes ingest resumable; don't change the hash inputs.
-- **Two Qdrant collections** (`ten_visual`, `ten_text`) share an identical payload so a hit in either side renders the same UI card. Keep payload writes symmetric in `Store.upsert`.
+- **Two Qdrant collections** (`ten_visual`, `ten_text`) share an identical payload so a hit in either side renders the same UI card. Keep payload writes symmetric in `Store.upsert`. A third `ten_audio` collection appears only when `TEN_CLAP_BACKEND=clap` is set during ingest.
+- **CLAP audio integration** is a *post-fusion reranker*, not a third RRF source. Equal-weight 3-way RRF regressed retrieval on the QVHighlights pilot (R@1 0.68→0.21) because CLAP's text encoder is trained for audio alignment, not general semantics. As a bounded reranker (top-K, score-threshold-gated, additive boost only — never demotes) it is at-worst a no-op on visual queries and provides real signal when the query genuinely concerns sound content. Knobs: `TEN_AUDIO_RERANK_{TOP_K,THRESHOLD,WEIGHT}`.
 - **Lazy model loading**: every model wrapper loads on first use, behind a lock. Don't eagerly load in `__init__` — it makes the CLI/API slow to start and breaks `ten status`.
 - **Config** is env-driven, single source of truth in `src/ten/config.py`. Add new knobs there, not as scattered constants.
 - **No comments on what code does** — keep the codebase explanation in this file and the docstrings already at module tops.

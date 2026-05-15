@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .embed_audio import AudioEmbedderProtocol, make_audio_embedder
 from .embed_text import TextEmbedder
 from .embed_video import VideoEmbedder
 from .rerank import RerankerProtocol, make_reranker
@@ -30,14 +31,18 @@ class Hit:
     sources: list[str]  # ["text"], ["visual"], or ["text","visual"]
 
 
-def _rrf(rank_lists: list[list[tuple[str, dict]]], k: int = 60) -> list[Hit]:
+def _rrf(
+    rank_lists: list[list[tuple[str, dict]]],
+    source_names: list[str] | None = None,
+    k: int = 60,
+) -> list[Hit]:
     """Reciprocal Rank Fusion. Each input list is [(clip_id, payload), ...] in rank order."""
     scores: dict[str, float] = {}
     payloads: dict[str, dict] = {}
     sources: dict[str, list[str]] = {}
-    source_names = ["text", "visual"]
+    names = source_names or ["text", "visual", "audio"]
     for li, ranked in enumerate(rank_lists):
-        src = source_names[li] if li < len(source_names) else f"src{li}"
+        src = names[li] if li < len(names) else f"src{li}"
         for rank, (cid, payload) in enumerate(ranked):
             scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + rank + 1)
             payloads[cid] = payload
@@ -53,14 +58,21 @@ class Searcher:
         self.store = Store()
         self.text_embedder = TextEmbedder()
         self.video_embedder = VideoEmbedder()
-        # Lazy: reranker is only loaded if TEN_RERANKER_BACKEND is set.
+        # Lazy: reranker / CLAP are only loaded if their env var is set.
         self._reranker: RerankerProtocol | None | object = _UNSET
+        self._audio_embedder: AudioEmbedderProtocol | None | object = _UNSET
 
     @property
     def reranker(self) -> RerankerProtocol | None:
         if self._reranker is _UNSET:
             self._reranker = make_reranker()
         return self._reranker  # type: ignore[return-value]
+
+    @property
+    def audio_embedder(self) -> AudioEmbedderProtocol | None:
+        if self._audio_embedder is _UNSET:
+            self._audio_embedder = make_audio_embedder()
+        return self._audio_embedder  # type: ignore[return-value]
 
     def search(
         self,
@@ -82,6 +94,8 @@ class Searcher:
             per_source = max(per_source, CONFIG.reranker_top_k)
         rank_lists: list[list[tuple[str, dict]]] = []
 
+        active_sources: list[str] = []
+
         if text:
             qv = self.text_embedder.embed_query(text)
             text_hits = self.store.search_text(qv, limit=per_source)
@@ -90,28 +104,76 @@ class Searcher:
             if self.reranker is not None:
                 ranked_text = self._rerank(text, ranked_text)
             rank_lists.append(ranked_text)
+            active_sources.append("text")
 
         if image_path is not None or video_path is not None:
             frames = self._frames_from_query(image_path, video_path)
             vv = self.video_embedder.embed([frames])[0]
             vis_hits = self.store.search_visual(vv, limit=per_source)
             rank_lists.append([(h.payload["clip_id"], h.payload) for h in vis_hits])
+            active_sources.append("visual")
+
+        # CLAP audio: used as a *bounded post-fusion reranker*, not a peer source.
+        # Equal-weight 3-way RRF (the obvious integration) regresses retrieval
+        # because CLAP's text encoder is trained for audio alignment, not general
+        # semantic retrieval — adding it via RRF injects rank noise across the
+        # whole list. As a reranker scoped to the top-K candidates with a score
+        # floor, it can promote audio-relevant clips but never push the right
+        # video out of the top-K.
+        audio_score_map: dict[str, float] = {}
+        if text and self.audio_embedder is not None:
+            try:
+                qa = self.audio_embedder.embed_text([text])[0]
+                # Pull a wide audio pool so the rerank top-K from text+visual is
+                # likely to overlap it. Top-K from audio alone almost never
+                # intersects top-K from text+visual.
+                audio_hits = self.store.search_audio(qa, limit=per_source)
+                audio_score_map = {h.payload["clip_id"]: float(h.score) for h in audio_hits}
+            except Exception:
+                pass
 
         if not rank_lists:
             raise ValueError("Provide at least one of: text, image_path, video_path")
 
         if len(rank_lists) == 1:
-            return [
+            hits = [
                 Hit(
                     clip_id=cid,
                     score=1.0 / (i + 1),
                     payload=payload,
-                    sources=["text" if text else "visual"],
+                    sources=[active_sources[0]],
                 )
                 for i, (cid, payload) in enumerate(rank_lists[0][:limit])
             ]
+        else:
+            hits = _rrf(rank_lists, source_names=active_sources)
 
-        return _rrf(rank_lists)[:limit]
+        if audio_score_map:
+            hits = self._audio_rerank(hits, audio_score_map)
+        return hits[:limit]
+
+    def _audio_rerank(self, hits: list[Hit], audio_scores: dict[str, float]) -> list[Hit]:
+        """Apply CLAP-audio reranking to the top-K candidates only.
+
+        Adds `audio_weight * max(0, audio_cos - threshold)` to each candidate's
+        score, then resorts. Items below the head are untouched, so audio can
+        only reorder within candidates the visual+text channels already
+        agreed are plausible.
+        """
+        k = CONFIG.audio_rerank_top_k
+        head, tail = hits[:k], hits[k:]
+        if not head:
+            return hits
+        thr = CONFIG.audio_rerank_threshold
+        w = CONFIG.audio_rerank_weight
+        for h in head:
+            cos = audio_scores.get(h.clip_id, 0.0)
+            if cos > thr:
+                h.score += w * (cos - thr)
+                if "audio" not in h.sources:
+                    h.sources.append("audio")
+        head.sort(key=lambda h: -h.score)
+        return head + tail
 
     def _rerank(
         self, query: str, ranked: list[tuple[str, dict]]

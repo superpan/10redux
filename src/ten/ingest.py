@@ -20,6 +20,11 @@ from rich.progress import (
 from .asr import TranscriberProtocol, make_transcriber
 from .audio import extract_audio
 from .caption import CaptionerProtocol, make_captioner
+from .embed_audio import (
+    CLAP_SAMPLE_RATE,
+    AudioEmbedderProtocol,
+    make_audio_embedder,
+)
 from .config import CONFIG
 from .embed_text import TextEmbedder
 from .embed_video import VideoEmbedder
@@ -58,12 +63,16 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
     transcriber = make_transcriber()  # None unless TEN_ASR_BACKEND is set
     if transcriber is not None:
         console.print("[bold]ASR enabled[/bold] — Whisper transcripts will be appended to caption text")
+    audio_embedder = make_audio_embedder()  # None unless TEN_CLAP_BACKEND is set
+    if audio_embedder is not None:
+        console.print("[bold]CLAP enabled[/bold] — audio embeddings will populate ten_audio collection")
     store = Store()
 
     # Sniff dims (forces model load) so we can create collections up-front.
     visual_dim = video_embedder.dim
     text_dim = text_embedder.dim
-    store.ensure_collections(visual_dim=visual_dim, text_dim=text_dim)
+    audio_dim = audio_embedder.dim if audio_embedder is not None else None
+    store.ensure_collections(visual_dim=visual_dim, text_dim=text_dim, audio_dim=audio_dim)
 
     # Plan clips up-front for accurate progress.
     plan: list[Clip] = []
@@ -105,11 +114,11 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
                 continue
             batch.append((clip, frames))
             if len(batch) >= CONFIG.batch_size:
-                processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, store)
+                processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, audio_embedder, store)
                 batch.clear()
             progress.advance(task)
         if batch:
-            processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, store)
+            processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, audio_embedder, store)
 
     console.print(
         f"[green]Done.[/green] processed={processed} skipped={skipped} total={len(plan)}"
@@ -123,6 +132,7 @@ def _flush(
     text_embedder: TextEmbedder,
     captioner: CaptionerProtocol,
     transcriber: TranscriberProtocol | None,
+    audio_embedder: AudioEmbedderProtocol | None,
     store: Store,
 ) -> int:
     clips = [b[0] for b in batch]
@@ -145,10 +155,34 @@ def _flush(
             for i, clip in enumerate(clips):
                 wav = tmpdir / f"{clip.clip_id}.wav"
                 try:
-                    if extract_audio(clip, wav):
+                    if extract_audio(clip, wav, sample_rate=16000):
                         transcripts[i] = transcriber.transcribe(wav)
                 except Exception as e:
                     console.print(f"[yellow]ASR failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
+
+    # Optional CLAP audio embeddings. Need 48 kHz for LAION CLAP.
+    audio_vecs = None
+    if audio_embedder is not None:
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory(prefix="ten_clap_") as td:
+            tmpdir = Path(td)
+            paths: list[Path] = []
+            keep: list[int] = []
+            for i, clip in enumerate(clips):
+                wav = tmpdir / f"{clip.clip_id}.wav"
+                try:
+                    if extract_audio(clip, wav, sample_rate=CLAP_SAMPLE_RATE):
+                        paths.append(wav)
+                        keep.append(i)
+                except Exception as e:
+                    console.print(f"[yellow]audio extract failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
+            if paths:
+                got = audio_embedder.embed(paths)
+                # Fill non-extracted slots with zero vectors so the upsert shape matches.
+                audio_vecs = np.zeros((len(clips), got.shape[1]), dtype=np.float32)
+                for slot, vec in zip(keep, got, strict=True):
+                    audio_vecs[slot] = vec
 
     # Text embeddings: caption + transcript so retrieval picks up either signal.
     embed_inputs = [
@@ -179,5 +213,5 @@ def _flush(
             )
         )
 
-    store.upsert(payloads, visual_vecs, text_vecs)
+    store.upsert(payloads, visual_vecs, text_vecs, audio_vecs=audio_vecs)
     return len(payloads)
