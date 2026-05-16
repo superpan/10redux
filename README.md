@@ -29,8 +29,8 @@ export TEN_VLM_BACKEND=vllm
 export TEN_VLLM_URL=http://your-host:8000/v1
 
 ten search "a dragon breathing fire"              # works from any directory
-ten clip <id>
-ten summary <id> -d narrative
+ten clip <id>                                     # inspect a clip's metadata
+ten summary <id>                                  # paragraph summary via Qwen3-VL
 ```
 
 Thumbnail cache defaults to `~/.local/share/ten` (XDG-style), so it doesn't depend on cwd.
@@ -70,16 +70,15 @@ All 7 queries from the smoke test returned a top hit from the correct source vid
 
 ### Long-form: snowsports
 
-A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure.
+Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) — 12 minutes, Red Bull Snow, CC BY 3.0 — ingested into the live ~3,200-clip index alongside MSR-VTT, the QVH pilot, and the smoke set. Each row's rank is across the full index, not within the snowsports video.
 
-A 15-second highlight reel of the five matched moments (3 s each, in chronological order — helmet → wind → summit → ridge → carving):
+The thumbnails are the actual frames ten cached at ingest; the captions are exactly what Qwen3-VL wrote.
 
 <video src="data/snowsports_demo/highlights.mp4" controls width="640" poster="data/snowsports_demo/summit.jpg">
-  Your browser does not support inline video. Direct link:
-  <a href="data/snowsports_demo/highlights.mp4">highlights.mp4</a>
+  Inline video not supported by your browser — direct link: <a href="data/snowsports_demo/highlights.mp4">highlights.mp4</a>.
 </video>
 
-The thumbnails below are the real per-clip frames that ten caches at ingest, and the caption next to each is exactly what Qwen3-VL wrote — no post-hoc curation:
+<sub>15 s highlight reel: 3 s from each matched moment, in chronological order (helmet → wind → summit → ridge → carving).</sub>
 
 | scene (mid-frame) | query → matched moment + extracted caption |
 |---|---|
@@ -89,11 +88,9 @@ The thumbnails below are the real per-clip frames that ten caches at ingest, and
 | <img src="data/snowsports_demo/ridge.jpg" width="220"> | **"a skier navigating a narrow icy ridge"** → 9:18–9:28 — *"A skier descends a steep, snow-covered mountain slope, navigating between exposed rock faces and deep powder…"* &nbsp;_(top result lifted by the CLAP audio reranker — `sources=['text','audio']`)_ |
 | <img src="data/snowsports_demo/carving.jpg" width="220"> | **"a skier carving turns down a steep snowy face"** → 10:03–10:13 — *"A skier descends a steep, snow-covered mountainside, carving turns down the slope as the camera follows their progress."* |
 
-All five queries surfaced the right K2 clip at rank 1–2 despite competing against ~3,100 unrelated clips. ASR on this footage is mostly garbled because Whisper hallucinates over wind and music — caption text and visual embeddings did the work.
+All five queries surface the right K2 clip at rank 1–2 against ~3,100 unrelated competitors. ASR on this footage is mostly garbled (Whisper hallucinates over wind and music) — caption text and visual embeddings did the work. The full 10 s window of any scene streams from the API (`/clip/<clip_id>.mp4`, Range-supported) or plays from the UI card.
 
-The thumbnails above and the caption text are exactly what ten extracted at ingest time and stored in Qdrant payload — no post-hoc curation. Each scene's full 10-second window can be played back from the API (`/clip/<clip_id>.mp4` Range-streams it on demand) or from the UI by clicking the card.
-
-> Video credit: Red Bull Snow / Andrzej Bargiel, "Experience the world's first ski descent of K2", CC BY 3.0. Source: [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm).
+> Credit: Red Bull Snow / Andrzej Bargiel, "Experience the world's first ski descent of K2", CC BY 3.0 ([Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm)).
 
 ### Benchmark — MSR-VTT 1K-A
 
@@ -127,19 +124,19 @@ Both above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text mode
 ## How it works
 
 1. **Index.** Each video is split into overlapping ~10 s clips. For every clip:
-   - **V-JEPA 2** produces a normalized visual vector (mean-pooled tokens).
-   - **Qwen3-VL** writes a 1–2 sentence caption.
-   - **Qwen3-Embedding** embeds the caption.
-   - Both vectors land in Qdrant under the same clip id, and a JPEG thumbnail is cached.
-2. **Search.**
-   - **Text** → caption-vector search.
-   - **Image / video** → V-JEPA visual search.
-   - Combine both → reciprocal-rank fusion.
-3. **Summarize on demand.** The "summarize" button (and `ten summary <clip_id>`) re-decodes the clip and asks Qwen3-VL for a paragraph-length summary. Cached in memory.
+   - **V-JEPA 2** produces a normalized visual vector (mean-pooled tokens) → `ten_visual`.
+   - **Qwen3-VL** writes a 1–2 sentence caption; **Qwen3-Embedding** embeds it → `ten_text`.
+   - *(opt-in)* **Whisper** appends an ASR transcript to the caption before text embedding.
+   - *(opt-in)* **LAION CLAP** produces a 512-d audio vector → `ten_audio`.
+   - All collections share the clip id; a JPEG thumbnail is cached for the UI.
+2. **Search.** Text query → caption-vector search + visual-vector search, fused with RRF. With audio enabled, CLAP reranks the head of the fused list (top-K only, score-thresholded, additive — never demotes; see knobs in [Configuration](#configuration)). Image/video queries route to V-JEPA only.
+3. **Summarize on demand.** The "summarize" button (and `ten summary <clip_id>`) re-decodes the clip and asks Qwen3-VL for a paragraph summary. Cached in memory.
 
-The two-collection layout means a text-aligned video encoder is unnecessary — the LLM does the text alignment by writing captions, and you still get fast vector retrieval at query time.
+The caption-embedding layout means a text-aligned video encoder is unnecessary — the LLM does the text alignment by writing captions, and you keep fast vector retrieval at query time.
 
-**ASR — opt-in (and intentionally so).** Run `ten index --asr` (or `make index-asr FOLDER=…`) to add a Whisper transcript per clip. Transcript is appended to the caption before text embedding. Use it when your library is dialogue-heavy and queries reference what is *said*; skip it for visual search of mixed content. On MSR-VTT 1K-A, ASR was a near-zero-sum shuffle (R@1 0.338 → 0.325) — it helps when the query quotes the audio, hurts when the caption is abstract. See [EVAL.md](EVAL.md#asr--voice-tag-retrieval) for the full breakdown.
+**ASR is opt-in.** Use it when your library is dialogue-heavy and queries reference what is *said*; skip it for purely visual content. On MSR-VTT 1K-A, ASR alone was a near-zero-sum shuffle (R@1 0.338 → 0.325), but ASR + cross-encoder reranker is the best operating point at R@1 = 0.360 (table above). See [EVAL.md](EVAL.md#asr--voice-tag-retrieval) for the breakdown.
+
+**CLAP is opt-in.** Equal-weight 3-way RRF over text + visual + audio regressed retrieval on our QVH pilot (top-vid-match R@1 0.68 → 0.21) because CLAP's text encoder is trained for audio alignment, not general semantics. As a bounded post-fusion reranker it's at-worst a no-op on visual-description queries and contributes a real signal when a query actually concerns sound content.
 
 ## Requirements
 
@@ -206,6 +203,11 @@ All settings are env vars (see `src/ten/config.py`):
 | `TEN_RERANKER_BACKEND` | `none` | `none` / `crossencoder` — enable Qwen3-Reranker over the bi-encoder's top-K |
 | `TEN_RERANKER_MODEL` | `Qwen/Qwen3-Reranker-0.6B` | Cross-encoder model id; works with any sentence-transformers CrossEncoder-compatible model |
 | `TEN_RERANKER_TOP_K` | `100` | Bi-encoder candidates to rescore per query. Lower = faster query (try 25 for ~4× speedup) |
+| `TEN_CLAP_BACKEND` | `none` | `none` / `clap` — enable LAION CLAP audio embeddings (creates `ten_audio`, reranks the head of the fused list) |
+| `TEN_CLAP_MODEL` | `laion/clap-htsat-fused` | CLAP variant |
+| `TEN_AUDIO_RERANK_TOP_K` | `30` | Head size the audio reranker touches; everything below this rank is untouched |
+| `TEN_AUDIO_RERANK_THRESHOLD` | `0.30` | Min CLAP cosine for an audio match to count; below this the boost is zero |
+| `TEN_AUDIO_RERANK_WEIGHT` | `0.03` | Multiplier on `(cos − threshold)` added to the head item's score. Tuned to nudge ranks a few positions, not catapult |
 | `TEN_CLIP_SECONDS` | `10` | Clip window length |
 | `TEN_CLIP_OVERLAP` | `1` | Overlap between adjacent clips |
 | `TEN_FRAMES_PER_CLIP` | `8` | Frames sampled per clip (bump to 16 for motion-heavy footage at +~17% ingest cost) |
