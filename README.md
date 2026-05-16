@@ -70,19 +70,21 @@ All 7 queries from the smoke test returned a top hit from the correct source vid
 
 ### Long-form: snowsports
 
-A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure:
+A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure. The thumbnails are the real per-clip frames that ten caches at ingest:
 
-| query | top match |
+| scene (mid-frame) | query → matched moment + extracted caption |
 |---|---|
-| "a skier carving turns down a steep snowy face" | `k2_ski_descent.webm` 10:03–10:13 — *"A skier descends a steep, snow-covered mountainside, carving turns down the slope as the camera follows their progress."* |
-| "dramatic view of jagged mountain peaks above clouds" | `k2_ski_descent.webm` 2:33–2:43 — *"A snow-capped mountain peak emerging from a thick layer of clouds against a clear blue sky…"* |
-| "close-up of a skier in helmet and goggles" | `k2_ski_descent.webm` 0:18–0:28 — *"A skier in a Red Bull helmet and sunglasses takes a selfie at the summit, then turns to prepare for a descent…"* |
-| "a skier navigating a narrow icy ridge" | `k2_ski_descent.webm` 9:18–9:28 — *"A skier descends a steep, snow-covered mountain slope, navigating between exposed rock faces and deep powder…"* (top result lifted by the CLAP audio reranker — `sources=['text','audio']`) |
-| "wind blowing over high snowy terrain" | `k2_ski_descent.webm` 1:39–1:49 — *"A climber in a red jacket and backpack ascends a snowy slope… roped to another climber further up the mountain."* |
+| <img src="data/snowsports_demo/helmet.jpg" width="220"> | **"close-up of a skier in helmet and goggles"** → 0:18–0:28 — *"A skier in a Red Bull helmet and sunglasses takes a selfie at the summit, then turns to prepare for a descent…"* |
+| <img src="data/snowsports_demo/wind.jpg" width="220"> | **"wind blowing over high snowy terrain"** → 1:39–1:49 — *"A climber in a red jacket and backpack ascends a snowy slope… roped to another climber further up the mountain."* |
+| <img src="data/snowsports_demo/summit.jpg" width="220"> | **"dramatic view of jagged mountain peaks above clouds"** → 2:33–2:43 — *"A snow-capped mountain peak emerging from a thick layer of clouds against a clear blue sky…"* |
+| <img src="data/snowsports_demo/ridge.jpg" width="220"> | **"a skier navigating a narrow icy ridge"** → 9:18–9:28 — *"A skier descends a steep, snow-covered mountain slope, navigating between exposed rock faces and deep powder…"* &nbsp;_(top result lifted by the CLAP audio reranker — `sources=['text','audio']`)_ |
+| <img src="data/snowsports_demo/carving.jpg" width="220"> | **"a skier carving turns down a steep snowy face"** → 10:03–10:13 — *"A skier descends a steep, snow-covered mountainside, carving turns down the slope as the camera follows their progress."* |
 
-All five queries surfaced the right K2 clip at rank 1–2 despite competing against ~3,100 unrelated clips in the index. ASR on this footage is mostly garbled because Whisper hallucinates over wind and music — caption text and visual embeddings did the work.
+All five queries surfaced the right K2 clip at rank 1–2 despite competing against ~3,100 unrelated clips. ASR on this footage is mostly garbled because Whisper hallucinates over wind and music — caption text and visual embeddings did the work.
 
-> Video credit: Red Bull Snow / Andrzej Bargiel, "Experience the world's first ski descent of K2", CC BY 3.0.
+The thumbnails above and the caption text are exactly what ten extracted at ingest time and stored in Qdrant payload — no post-hoc curation. Each scene's full 10-second window can be played back from the API (`/clip/<clip_id>.mp4` Range-streams it on demand) or from the UI by clicking the card.
+
+> Video credit: Red Bull Snow / Andrzej Bargiel, "Experience the world's first ski descent of K2", CC BY 3.0. Source: [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm).
 
 ### Benchmark — MSR-VTT 1K-A
 

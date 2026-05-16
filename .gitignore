@@ -13,6 +13,7 @@ wheels/
 .ten/
 data/*
 !data/eval/
+!data/snowsports_demo/
 qdrant_storage/
 videos/
 logs/
