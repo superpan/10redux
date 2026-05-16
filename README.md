@@ -6,7 +6,8 @@ Open-weight video search for large libraries.
 - **Captions / summaries** — [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) (multi-image / video reasoning)
 - **ASR transcripts** *(opt-in)* — [Whisper-large-v3](https://huggingface.co/openai/whisper-large-v3) via HF transformers (default) or [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - **Caption embeddings** — [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
-- **Vector index** — Qdrant, two collections, RRF-fused at query time
+- **Audio embeddings** *(opt-in)* — [LAION CLAP](https://huggingface.co/laion/clap-htsat-fused), used as a bounded post-fusion reranker
+- **Vector index** — Qdrant, 2–3 collections; text+visual RRF-fused at query time, audio reranks the head
 - **API + UI** — FastAPI + Next.js 15
 - **CLI** — `ten`
 
@@ -67,6 +68,22 @@ Smoke run over Big Buck Bunny, Sintel, Sintel trailer, and Charlie Chaplin's *Th
 
 All 7 queries from the smoke test returned a top hit from the correct source video.
 
+### Long-form: snowsports
+
+A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure:
+
+| query | top match |
+|---|---|
+| "a skier carving turns down a steep snowy face" | `k2_ski_descent.webm` 10:03–10:13 — *"A skier descends a steep, snow-covered mountainside, carving turns down the slope as the camera follows their progress."* |
+| "dramatic view of jagged mountain peaks above clouds" | `k2_ski_descent.webm` 2:33–2:43 — *"A snow-capped mountain peak emerging from a thick layer of clouds against a clear blue sky…"* |
+| "close-up of a skier in helmet and goggles" | `k2_ski_descent.webm` 0:18–0:28 — *"A skier in a Red Bull helmet and sunglasses takes a selfie at the summit, then turns to prepare for a descent…"* |
+| "a skier navigating a narrow icy ridge" | `k2_ski_descent.webm` 9:18–9:28 — *"A skier descends a steep, snow-covered mountain slope, navigating between exposed rock faces and deep powder…"* (top result lifted by the CLAP audio reranker — `sources=['text','audio']`) |
+| "wind blowing over high snowy terrain" | `k2_ski_descent.webm` 1:39–1:49 — *"A climber in a red jacket and backpack ascends a snowy slope… roped to another climber further up the mountain."* |
+
+All five queries surfaced the right K2 clip at rank 1–2 despite competing against ~3,100 unrelated clips in the index. ASR on this footage is mostly garbled because Whisper hallucinates over wind and music — caption text and visual embeddings did the work.
+
+> Video credit: Red Bull Snow / Andrzej Bargiel, "Experience the world's first ski descent of K2", CC BY 3.0.
+
 ### Benchmark — MSR-VTT 1K-A
 
 Text → video retrieval over the standard 1000-video test split. Two operating points:
@@ -79,6 +96,22 @@ Text → video retrieval over the standard 1000-video test split. Two operating 
 ![MSR-VTT 1K-A: Recall@K curve and rank distribution](data/eval/msrvtt_latest.png)
 
 Both above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text models (0.43–0.55) — about what you'd expect for caption-mediated retrieval. Methodology, full 2×2 ablation, and how to reproduce: [EVAL.md](EVAL.md).
+
+## When ten fits
+
+**Well-suited:**
+- Mid-length to long-form libraries (a few minutes to hours): vlogs, lectures, podcasts, tutorials, demos, sports broadcasts, family/travel footage. The 10 s clip windowing + moment-retrieval UI is designed for "*where* in this video did X happen?"
+- Visually distinctive content. V-JEPA + Qwen3-VL describe what's visible — that's the strong axis.
+- Speech-bearing content with `--asr` on. Transcripts get appended to caption text, so "when did they mention …" queries work cleanly.
+- Short web clips (MSR-VTT-style 10–30 s): solid retrieval at R@1=0.36 on 1K-A.
+
+**Known weak spots:**
+- *Visually uniform footage* (single-speaker lectures, security cams, sports replays from one camera angle): V-JEPA can't differentiate, retrieval collapses onto the transcript text. If there's no speech either, no signal.
+- *Sub-10 s precision*: clip granularity is the floor. Lower `TEN_CLIP_SECONDS` and re-ingest if you need tighter moment localization.
+- *Pure-audio queries* ("applause", "drum solo", "engine revving"): CLAP runs only as a bounded reranker on the head, not a primary retrieval channel. Naive equal-weight RRF integration regressed retrieval in our QVHighlights pilot (R@1 0.68 → 0.21), so CLAP is opt-in and intentionally conservative. A dedicated `/search-audio` endpoint would unlock pure-audio queries.
+- *Very long single-take videos*: each 10 s chunk is captioned in isolation; "what happens first, then, finally" queries don't aggregate across the video.
+- *Non-English audio* without `TEN_ASR_LANGUAGE` set: Whisper auto-detect is unreliable on short clips.
+- *Music libraries by song/artist*: no acoustic fingerprinting. CLAP matches semantics ("rock with heavy guitar") not identity ("track X by artist Y").
 
 ## How it works
 
