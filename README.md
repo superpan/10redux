@@ -70,7 +70,16 @@ All 7 queries from the smoke test returned a top hit from the correct source vid
 
 ### Long-form: snowsports
 
-A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure. The thumbnails are the real per-clip frames that ten caches at ingest:
+A single 12-minute video — Andrzej Bargiel's [first ski descent of K2](https://commons.wikimedia.org/wiki/File:Experience_the_world's_first_ski_descent_of_K2_with_Andrzej_Bargiel.webm) (Red Bull Snow, CC BY 3.0) — ingested as ~80 ten-second clips alongside the existing ~3,100-clip index (MSR-VTT 1K-A + QVH pilot + smoke set). Each row below shows the top hit *across the full index*, not within the snowsports video alone, so the rank reflects actual selection pressure.
+
+A 15-second highlight reel of the five matched moments (3 s each, in chronological order — helmet → wind → summit → ridge → carving):
+
+<video src="data/snowsports_demo/highlights.mp4" controls width="640" poster="data/snowsports_demo/summit.jpg">
+  Your browser does not support inline video. Direct link:
+  <a href="data/snowsports_demo/highlights.mp4">highlights.mp4</a>
+</video>
+
+The thumbnails below are the real per-clip frames that ten caches at ingest, and the caption next to each is exactly what Qwen3-VL wrote — no post-hoc curation:
 
 | scene (mid-frame) | query → matched moment + extracted caption |
 |---|---|
