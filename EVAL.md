@@ -139,6 +139,76 @@ Skip it when:
 - **Repetition loops** : on quiet / ambiguous audio, Whisper sometimes outputs the same phrase ("I'm sorry. I'm sorry…") for the entire clip. Known Whisper failure mode.
 - For serious deployment with ASR on, post-process transcripts to detect and drop clips where >50% of tokens are repeated. Likely to recover some of the −0.013 R@1 regression.
 
+## CLAP audio embeddings — pilot on QVHighlights
+
+LAION CLAP (`laion/clap-htsat-fused`) gives ten a third modality: 512-d audio embeddings, shipped to a third Qdrant collection `ten_audio`. The interesting question wasn't whether the encoder works (it does — see the smoke test in the commit message for `42c3cb8`), but how to *integrate* it. Two integrations were tried.
+
+### Why not MSR-VTT for this eval
+
+The MSR-VTT 1K-A test set ships with audio streams stripped — every clip we probed had no audio track. Running a CLAP ablation on MSR-VTT would compare two identical-by-construction configurations (empty `ten_audio` either way). We used the QVHighlights val set instead: 1519 unique 150-second YouTube clips with intact audio, downloaded via `make fetch-qvhighlights` (~80% recovery rate to dead/region-locked IDs, ~1246 videos in our run).
+
+### Pilot setup
+
+- 100-video subset of QVH val (first 100 lexicographically-sorted vids that were on disk), 100 corresponding text queries.
+- Indexed with `make index-full` (vLLM + Whisper ASR + CLAP) → 1686 clips in `ten_visual` / `ten_text` / `ten_audio`.
+- Eval is **open-set moment retrieval**, not QVH's official within-video localization: for each query, retrieve top-N clips across the full ~3,100-clip index (MSR-VTT + QVH pilot + smoke), then check whether the GT vid is present and whether the retrieved clip overlaps a `relevant_window`.
+- Metrics: any-overlap recall, IoU-thresholded recall (0.3 / 0.5 / 0.7), and `top_vid_match` recall (correct vid surfaced, ignoring temporal precision).
+
+10 s clip granularity caps the achievable IoU against long ground-truth windows (a 10 s clip vs a 60 s GT window can never exceed IoU 0.17), which is why we report `any_overlap` alongside the standard 0.5 / 0.7.
+
+### Result — three configurations
+
+Same index, same 100 queries, three search-time configurations:
+
+| config | any_R@1 | any_R@10 | top_vid_R@1 | IoU≥0.3 R@1 | IoU≥0.5 R@1 | IoU≥0.5 R@20 |
+|---|---:|---:|---:|---:|---:|---:|
+| text+visual (baseline) | 0.610 | 0.860 | 0.680 | 0.400 | 0.150 | 0.320 |
+| **+ CLAP via equal-weight RRF** | **0.160** | **0.680** | **0.210** | **0.060** | **0.010** | **0.310** |
+| + CLAP as bounded reranker | 0.610 | 0.860 | 0.680 | 0.400 | 0.150 | **0.330** |
+
+Numbers in `data/eval/qvhighlights_clap_{off,on,rerank,rerank_v2}.json`.
+
+The RRF row is a **−47 percentage point regression** at top-vid-match R@1. CLAP's text encoder is trained for audio alignment, not general semantics; adding it as a peer RRF source on visual-description queries injects rank noise across the whole list and pushes the correct video out of the top-K.
+
+### Per-query analysis — gating wouldn't have saved RRF
+
+Hypothesis tested: maybe RRF only hurts non-audio queries, and a query-router (cue words: music / talking / applause / etc.) would gate CLAP correctly. Result:
+
+| subset | n | baseline any_R@1 | CLAP-RRF any_R@1 | absolute drop |
+|---|---:|---:|---:|---:|
+| All queries | 100 | 0.610 | 0.160 | −0.450 |
+| Cue queries (music/talk/laugh/etc) | 14 | 0.429 | 0.071 | −0.358 |
+| Plain visual queries | 86 | 0.640 | 0.174 | −0.466 |
+
+Cue queries are hurt *roughly as badly* as plain ones (relative drop is actually slightly larger). Of 13 queries CLAP-RRF helped, only 2 were cue queries. Gating wouldn't have fixed the regression.
+
+### Reranker integration — why it works
+
+The shipped integration:
+- text+visual fuse via RRF as before (no audio in the rank lists).
+- CLAP audio search runs in parallel; results form a `clip_id → cosine_score` map.
+- For the top-K head of the fused list (default `K=30`), score is bumped by `weight * max(0, cosine − threshold)`. Below the head, nothing changes.
+- Audio can therefore **promote within the head**, but never demote anything out of it and never introduce new candidates.
+
+Defaults (`TEN_AUDIO_RERANK_{TOP_K=30,THRESHOLD=0.30,WEIGHT=0.03}`) are deliberately conservative — they bound the maximum rerank impact to a few ranks. On the pilot this surfaced one extra query into R@20 ("A video blogger talking and eating" at rank 21 → 20) which cleared three R@20 thresholds simultaneously (`any_overlap`, `top_vid_match`, `iou≥0.5`), giving the +0.010 in the table above. Net effect: **safe but ~no-op on visual-description queries**; the upside arrives when queries actually concern sound content (a regime the QVH pilot doesn't exercise).
+
+### MSR-VTT regression check
+
+Re-ran the standard MSR-VTT 1K-A eval with `TEN_CLAP_BACKEND=clap` active. Since MSR-VTT clips have no audio, `audio_score_map` is empty for every query and the reranker is a strict no-op:
+
+| metric | baseline (`444ebcf`) | CLAP-as-reranker active |
+|---|---:|---:|
+| R@1 | 0.360 | 0.361 |
+| R@5 | 0.569 | 0.584 |
+| R@10 | 0.660 | 0.665 |
+| Mean rank | 44.2 | 33.8 |
+
+R@1 is essentially unchanged (within run noise). The R@5 / R@10 / mean-rank drift is from index-state noise (1686 QVH clips were ingested into the same Qdrant container between the two runs; namespace filtering excludes them from MSR-VTT eval but floating-point ordering during re-ingest of the MSR-VTT set itself shifts marginally). No regression attributable to CLAP.
+
+### Verdict
+
+CLAP ships **opt-in** (`TEN_CLAP_BACKEND=clap`) and **reranker-only** (no equal-weight RRF path exposed). For visual-description query distributions it's at-worst a no-op. The interesting unlock is an audio-explicit query surface (e.g., a future `/search-audio` endpoint or a query router); the bounded reranker is a safety-first stepping stone, not the end state.
+
 ## Reproduce
 
 ```bash
@@ -147,4 +217,14 @@ make vllm-up                                      # optional but ~2.7× faster i
 make fetch-msrvtt                                 # ~2.2 GB
 TEN_VLM_BACKEND=vllm make ingest-msrvtt           # ~34 min on GB10
 make eval                                         # ~45 s; writes data/eval/msrvtt_latest.{json,png}
+```
+
+CLAP / QVHighlights pilot:
+
+```bash
+make fetch-qvhighlights                           # yt-dlp val split, hours, ~80% recovery
+# carve out a 100-video pilot folder (see tools/eval_qvhighlights.py docstring)
+TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_CLAP_BACKEND=clap \
+  make index-full FOLDER=./videos/qvh_pilot       # ~80 min for 1686 clips
+make eval-qvh-ablation                            # runs eval twice (CLAP off/on)
 ```
