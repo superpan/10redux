@@ -133,11 +133,62 @@ Skip it when:
 - Captions describe visual content abstractly and queries follow that style (the MSR-VTT case).
 - The library is mostly music or B-roll — Whisper hallucinations (`¶¶¶`, repetition loops) become noise without compensating signal.
 
-### ASR caveats
+### ASR caveats (pre-VAD)
 
-- **Music → `¶¶¶…`** : Whisper transcribes instrumental sections as repeated note characters. The VAD filter helps but doesn't catch all of them.
-- **Repetition loops** : on quiet / ambiguous audio, Whisper sometimes outputs the same phrase ("I'm sorry. I'm sorry…") for the entire clip. Known Whisper failure mode.
-- For serious deployment with ASR on, post-process transcripts to detect and drop clips where >50% of tokens are repeated. Likely to recover some of the −0.013 R@1 regression.
+The original Whisper-on-everything pipeline had three persistent failure modes:
+
+- **Music → `¶¶¶…`** : Whisper transcribes instrumental sections as repeated note characters.
+- **Wind / near-silence → repetition loops** : `"I'm sorry. I'm sorry…"`, `"Hjælp! Hjælp! Hjælp!"`, `えいぃぃぃぃぃ…`. Same phrase repeated for the full clip.
+- **Single-word fillers** : `"Okay."`, `"Hmm."`, `"so"` on near-silent input.
+
+### Quantifying the contamination
+
+Running `tools/asr_contamination.py` against the live index (1867 non-empty transcripts across snowsports + QVH val pilot + smoke):
+
+| namespace | clips | garbage | rate |
+|---|---:|---:|---:|
+| QVH val pilot (vlogs/news) | 1686 | 142 | 8.4% |
+| Smoke set (BBB/Sintel, music-heavy) | 99 | 40 | 40.4% |
+| Snowsports demo (12-min K2 descent) | 82 | 29 | 35.4% |
+| **all audio-bearing** | **1867** | **211** | **11.3%** |
+
+Indoor-talking content (QVH val) is largely fine; outdoor / music-heavy content (the exact distribution ten claims to be good for in its "When ten fits" section) sees roughly one-in-three Whisper outputs as hallucinated noise.
+
+### VAD pre-gate — Silero, layered before Whisper
+
+`src/ten/vad.py` wraps Silero VAD (ONNX, CPU, ~2 MB, ~24 ms per 10 s clip) as a pre-gate on the `TranscriberProtocol`. The transcriber chain becomes:
+
+1. extract 16 kHz mono WAV (already done for ASR)
+2. Silero `speech_fraction(wav)` → float in [0, 1]
+3. if `< TEN_VAD_MIN_SPEECH_FRACTION` (default 0.10), return `""` and skip Whisper entirely
+4. otherwise transcribe as before
+
+Opt-in: `TEN_VAD_BACKEND=silero` or `ten index --asr --vad` (or `make index-asr-vad FOLDER=…`).
+
+### Result — snowsports namespace before/after
+
+Re-ingested the K2 descent with `--asr --vad --clap --force`:
+
+| category | before VAD | after VAD |
+|---|---:|---:|
+| empty (skipped) | 0 | **47** |
+| near_empty (`'so'`, `'¶¶'`) | 13 | 0 |
+| music_glyph (`¶¶¶…`) | 2 | 0 |
+| filler (`'Okay.'`) | 5 | 1 |
+| repetition_loop (`Hjælp! Hjælp!`) | 10 | 3 |
+| real (Polish/Russian radio chatter with base camp) | 53 | 31 |
+| **total** | 82 | 82 |
+| **garbage rate among non-empty** | **35.4%** | **11.4%** |
+
+VAD correctly sent 47 clips to empty-transcript fast-paths. Of the 35 still transcribed, garbage dropped to ~4 (one filler + three short residual loops with speech fractions just above the 0.10 threshold). 22 previously-"real" transcripts also became empty — these are either genuinely sub-threshold or false negatives; tightening the threshold further trades real low-speech moments for fewer residual hallucinations.
+
+### Cost
+
+24 ms per 10 s clip on CPU after first-call model load (688 ms one-shot). Negligible against Whisper's ~real-time-per-clip on GPU; in fact net ingest time *decreases* when VAD lets us skip Whisper entirely on >50% of clips (the snowsports re-ingest skipped Whisper on 47/82 clips, recovering several minutes).
+
+### Verdict
+
+VAD is **opt-in** today (`TEN_VAD_BACKEND=silero`), no impact when off, strict improvement when on for audio that isn't dominated by speech. Default may flip to on once we re-eval MSR-VTT 1K-A with VAD active — but MSR-VTT clips have no audio in our distribution (see CLAP section), so the MSR-VTT regression check is moot. A re-eval on a speech-bearing benchmark would be the next data point.
 
 ## CLAP audio embeddings — pilot on QVHighlights
 

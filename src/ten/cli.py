@@ -24,6 +24,11 @@ def index(
         "--asr",
         help="Enable Whisper transcripts (large-v3). Adds ~real-time per clip on GPU.",
     ),
+    vad: bool = typer.Option(
+        False,
+        "--vad",
+        help="Pre-gate ASR with Silero VAD; non-speech clips skip Whisper. No effect without --asr.",
+    ),
     clap: bool = typer.Option(
         False,
         "--clap",
@@ -35,6 +40,8 @@ def index(
 
     if asr and os.environ.get("TEN_ASR_BACKEND", "").lower() in ("", "none"):
         os.environ["TEN_ASR_BACKEND"] = "whisper"
+    if vad and os.environ.get("TEN_VAD_BACKEND", "").lower() in ("", "none"):
+        os.environ["TEN_VAD_BACKEND"] = "silero"
     if clap and os.environ.get("TEN_CLAP_BACKEND", "").lower() in ("", "none"):
         os.environ["TEN_CLAP_BACKEND"] = "clap"
     from .ingest import ingest_folder

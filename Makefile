@@ -89,12 +89,16 @@ index-vllm: ## Ingest using the vLLM captioner backend (~3-5x faster)
 index-asr: ## Ingest with Whisper ASR transcripts (FOLDER=..., uses vLLM if available)
 	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper uv run ten index $(FOLDER) --asr
 
+index-asr-vad: ## ASR + Silero VAD pre-gate (skips Whisper on non-speech clips; cleaner transcripts)
+	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_VAD_BACKEND=silero \
+	  uv run ten index $(FOLDER) --asr --vad
+
 index-clap: ## Ingest with LAION CLAP audio embeddings (FOLDER=..., uses vLLM if available)
 	TEN_VLM_BACKEND=vllm TEN_CLAP_BACKEND=clap uv run ten index $(FOLDER) --clap
 
-index-full: ## Ingest with vLLM + ASR + CLAP — all signals on (FOLDER=...)
-	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_CLAP_BACKEND=clap \
-	  uv run ten index $(FOLDER) --asr --clap
+index-full: ## Ingest with vLLM + ASR (VAD-gated) + CLAP — all signals on (FOLDER=...)
+	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_VAD_BACKEND=silero TEN_CLAP_BACKEND=clap \
+	  uv run ten index $(FOLDER) --asr --vad --clap
 
 reindex: ## Re-embed every clip in FOLDER, ignoring existing ids
 	uv run ten index $(FOLDER) --force
@@ -154,6 +158,6 @@ help: ## Show this help
 .PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
         fetch-smoke fetch-msrvtt fetch-qvhighlights eval eval-qvh eval-qvh-ablation bench ingest-msrvtt \
-        index index-vllm index-asr index-clap index-full reindex smoke search status \
+        index index-vllm index-asr index-asr-vad index-clap index-full reindex smoke search status \
         serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

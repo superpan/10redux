@@ -1249,6 +1249,20 @@ wheels = [
 ]
 
 [[package]]
+name = "silero-vad"
+version = "6.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "torch" },
+    { name = "torchaudio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/32/d3/e31f526482782764aa4f70e20fd4545cf2e4a81a60b6fb0f089f6d107991/silero_vad-6.2.1.tar.gz", hash = "sha256:b23062b0e39fad17b1266fc23c1e7b4290219dbe82ce08510889e32f681f4b3b", size = 28913811, upload-time = "2026-02-24T08:41:59.329Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/2b/48566f29a8b53d856ceb1994f209122749b3fda0a733a07e82047257de7a/silero_vad-6.2.1-py3-none-any.whl", hash = "sha256:09de93c4d874bb19c53e62a47dd38be5f163cedad2b5599583231f2a84ef79cb", size = 9146242, upload-time = "2026-02-24T08:41:56.955Z" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1319,8 +1333,10 @@ dependencies = [
     { name = "qwen-vl-utils" },
     { name = "rich" },
     { name = "sentence-transformers" },
+    { name = "silero-vad" },
     { name = "soundfile" },
     { name = "torch" },
+    { name = "torchaudio" },
     { name = "torchvision" },
     { name = "tqdm" },
     { name = "transformers" },
@@ -1353,8 +1369,10 @@ requires-dist = [
     { name = "rich" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "sentence-transformers", specifier = ">=3" },
+    { name = "silero-vad", specifier = ">=5.1" },
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "torch", specifier = ">=2.7", index = "https://download.pytorch.org/whl/cu129" },
+    { name = "torchaudio", index = "https://download.pytorch.org/whl/cu129" },
     { name = "torchvision", index = "https://download.pytorch.org/whl/cu129" },
     { name = "tqdm" },
     { name = "transformers", specifier = ">=4.49" },
@@ -1421,6 +1439,15 @@ dependencies = [
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2d053729aa4ca5daa466dc1418fd3770f221017cb94d0d5c0c60c15b2eeedffd", upload-time = "2026-04-27T18:41:08Z" },
     { url = "https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:68b83cb7d7d43bc67c2833c8aebaea6a966f2017c3389885affa3361c258b7e3", upload-time = "2026-04-27T18:42:10Z" },
+]
+
+[[package]]
+name = "torchaudio"
+version = "2.11.0+cu129"
+source = { registry = "https://download.pytorch.org/whl/cu129" }
+wheels = [
+    { url = "https://download-r2.pytorch.org/whl/cu129/torchaudio-2.11.0%2Bcu129-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:8ad3f5b9348ed1b49ff9a180c3898e1b1bd8712ac8007cb60783dbd0c46dc479", upload-time = "2026-03-23T15:50:25Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu129/torchaudio-2.11.0%2Bcu129-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:de4105653562f031edd6ddf7dd1485f07db6ac62cdc90d17364648cd3c89eb5a", upload-time = "2026-03-23T15:50:25Z" },
 ]
 
 [[package]]

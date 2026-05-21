@@ -47,6 +47,15 @@ class Config:
         default_factory=lambda: _env("TEN_ASR_COMPUTE_TYPE", "float16")
     )
 
+    # Voice Activity Detection — pre-gate on Whisper. Off by default; opt-in via
+    # TEN_VAD_BACKEND=silero or `ten index --vad`. Has no effect without ASR on.
+    # Kills the Whisper-on-music (`¶¶¶`), Whisper-on-wind, and Whisper-on-silence
+    # hallucination failure modes by skipping transcription on clips with little
+    # detected speech. Contamination measured before VAD: ~11% of audio-bearing
+    # clips, up to ~35% on outdoor / music-heavy content.
+    vad_backend: str = field(default_factory=lambda: _env("TEN_VAD_BACKEND", "none"))
+    vad_min_speech_fraction: float = float(_env("TEN_VAD_MIN_SPEECH_FRACTION", "0.10"))
+
     # Reranker (off by default — opt-in via TEN_RERANKER_BACKEND=crossencoder).
     # When enabled, the bi-encoder's per_source results are re-scored by a
     # cross-encoder before the limit cut.

@@ -62,7 +62,12 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
     captioner = make_captioner()
     transcriber = make_transcriber()  # None unless TEN_ASR_BACKEND is set
     if transcriber is not None:
-        console.print("[bold]ASR enabled[/bold] — Whisper transcripts will be appended to caption text")
+        from .asr import VADGatedTranscriber  # local import to avoid cycle at module load
+
+        vad_note = " (VAD-gated)" if isinstance(transcriber, VADGatedTranscriber) else ""
+        console.print(
+            f"[bold]ASR enabled{vad_note}[/bold] — Whisper transcripts will be appended to caption text"
+        )
     audio_embedder = make_audio_embedder()  # None unless TEN_CLAP_BACKEND is set
     if audio_embedder is not None:
         console.print("[bold]CLAP enabled[/bold] — audio embeddings will populate ten_audio collection")

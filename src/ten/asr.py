@@ -17,10 +17,31 @@ from pathlib import Path
 from typing import Protocol
 
 from .config import CONFIG
+from .vad import VADProtocol, make_vad
 
 
 class TranscriberProtocol(Protocol):
     def transcribe(self, audio_path: Path) -> str: ...
+
+
+class VADGatedTranscriber:
+    """Wraps a TranscriberProtocol with a Silero VAD pre-gate.
+
+    Runs VAD on the clip first; if the speech fraction is below
+    `CONFIG.vad_min_speech_fraction`, returns an empty transcript without
+    invoking the underlying ASR. Kills Whisper-on-music (`¶¶¶`),
+    Whisper-on-wind ("Hjælp! Hjælp!"), and single-word filler hallucinations.
+    """
+
+    def __init__(self, inner: TranscriberProtocol, vad: VADProtocol) -> None:
+        self.inner = inner
+        self.vad = vad
+        self.min_speech = CONFIG.vad_min_speech_fraction
+
+    def transcribe(self, audio_path: Path) -> str:
+        if self.vad.speech_fraction(audio_path) < self.min_speech:
+            return ""
+        return self.inner.transcribe(audio_path)
 
 
 # Map short Whisper names to canonical HF model ids (transformers needs the full
@@ -158,15 +179,24 @@ class FasterWhisperTranscriber:
 
 
 def make_transcriber() -> TranscriberProtocol | None:
-    """Return a transcriber per TEN_ASR_BACKEND, or None if ASR is disabled."""
+    """Return a transcriber per TEN_ASR_BACKEND, or None if ASR is disabled.
+
+    If TEN_VAD_BACKEND is also set, the transcriber is wrapped with a
+    VAD pre-gate that returns empty for non-speech clips.
+    """
     backend = os.environ.get("TEN_ASR_BACKEND", CONFIG.asr_backend).lower()
     if backend in ("", "none", "off", "disabled", "false", "0"):
         return None
     if backend in ("whisper", "transformers"):
-        return TransformersWhisperTranscriber()
-    if backend in ("fasterwhisper", "faster-whisper"):
-        return FasterWhisperTranscriber()
-    raise ValueError(
-        f"Unknown TEN_ASR_BACKEND: {backend!r} "
-        "(expected 'none' | 'whisper' | 'fasterwhisper')"
-    )
+        base: TranscriberProtocol = TransformersWhisperTranscriber()
+    elif backend in ("fasterwhisper", "faster-whisper"):
+        base = FasterWhisperTranscriber()
+    else:
+        raise ValueError(
+            f"Unknown TEN_ASR_BACKEND: {backend!r} "
+            "(expected 'none' | 'whisper' | 'fasterwhisper')"
+        )
+    vad = make_vad()
+    if vad is not None:
+        return VADGatedTranscriber(base, vad)
+    return base
