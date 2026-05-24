@@ -93,7 +93,7 @@ class Config:
     dtype: str = field(default_factory=lambda: _env("TEN_DTYPE", "bfloat16"))
     batch_size: int = int(_env("TEN_BATCH_SIZE", "4"))
 
-    host: str = field(default_factory=lambda: _env("TEN_HOST", "127.0.0.1"))
+    host: str = field(default_factory=lambda: _env("TEN_HOST", "0.0.0.0"))
     port: int = int(_env("TEN_PORT", "8765"))
 
     @property
