@@ -29,6 +29,7 @@ class ClipPayload:
     caption: str
     thumb_path: str
     transcript: str = ""
+    library: str = ""  # parent dir name; lets the UI/API scope search to one library
 
     def to_dict(self) -> dict:
         return {
@@ -41,6 +42,7 @@ class ClipPayload:
             "caption": self.caption,
             "thumb_path": self.thumb_path,
             "transcript": self.transcript,
+            "library": self.library,
         }
 
 
@@ -75,19 +77,22 @@ class Store:
                 collection_name=CONFIG.audio_collection,
                 vectors_config=qm.VectorParams(size=audio_dim, distance=qm.Distance.COSINE),
             )
-        # Index video_path on every active collection so we can filter by source.
+        # Index video_path + library on every active collection so we can filter
+        # by source path or by library (parent dir name; lets `?library=personal`
+        # scope the search to just one ingest folder).
         cols = [CONFIG.visual_collection, CONFIG.text_collection]
         if audio_dim is not None:
             cols.append(CONFIG.audio_collection)
         for col in cols:
-            try:
-                self.client.create_payload_index(
-                    collection_name=col,
-                    field_name="video_path",
-                    field_schema=qm.PayloadSchemaType.KEYWORD,
-                )
-            except Exception:
-                pass
+            for field in ("video_path", "library"):
+                try:
+                    self.client.create_payload_index(
+                        collection_name=col,
+                        field_name=field,
+                        field_schema=qm.PayloadSchemaType.KEYWORD,
+                    )
+                except Exception:
+                    pass
 
     def upsert(
         self,
@@ -124,29 +129,68 @@ class Store:
         except Exception:
             return False
 
-    def search_visual(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
+    def _library_filter(self, library: str | None) -> qm.Filter | None:
+        if not library:
+            return None
+        return qm.Filter(
+            must=[qm.FieldCondition(key="library", match=qm.MatchValue(value=library))]
+        )
+
+    def search_visual(
+        self, vec: np.ndarray, limit: int = 50, library: str | None = None
+    ) -> list[qm.ScoredPoint]:
         return self.client.query_points(
             collection_name=CONFIG.visual_collection,
             query=vec.tolist(),
             limit=limit,
+            query_filter=self._library_filter(library),
             with_payload=True,
         ).points
 
-    def search_text(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
+    def search_text(
+        self, vec: np.ndarray, limit: int = 50, library: str | None = None
+    ) -> list[qm.ScoredPoint]:
         return self.client.query_points(
             collection_name=CONFIG.text_collection,
             query=vec.tolist(),
             limit=limit,
+            query_filter=self._library_filter(library),
             with_payload=True,
         ).points
 
-    def search_audio(self, vec: np.ndarray, limit: int = 50) -> list[qm.ScoredPoint]:
+    def search_audio(
+        self, vec: np.ndarray, limit: int = 50, library: str | None = None
+    ) -> list[qm.ScoredPoint]:
         return self.client.query_points(
             collection_name=CONFIG.audio_collection,
             query=vec.tolist(),
             limit=limit,
+            query_filter=self._library_filter(library),
             with_payload=True,
         ).points
+
+    def list_libraries(self) -> list[str]:
+        """Distinct `library` values currently in the index, sorted alphabetically.
+
+        Used by the UI/API to populate the library dropdown without hardcoding.
+        """
+        seen: set[str] = set()
+        offset = None
+        while True:
+            pts, offset = self.client.scroll(
+                collection_name=CONFIG.visual_collection,
+                limit=1024,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for p in pts:
+                lib = (p.payload or {}).get("library")
+                if lib:
+                    seen.add(lib)
+            if offset is None:
+                break
+        return sorted(seen)
 
     def get(self, clip_id: str) -> dict | None:
         res = self.client.retrieve(

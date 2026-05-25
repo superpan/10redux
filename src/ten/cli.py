@@ -58,6 +58,7 @@ def search(
     limit: int = typer.Option(20, "--limit", "-n"),
     image: Optional[Path] = typer.Option(None, "--image", help="Image-as-query (RRF-fused with text if both given)."),
     video: Optional[Path] = typer.Option(None, "--video", help="Video-as-query (RRF-fused with text if both given)."),
+    library: Optional[str] = typer.Option(None, "--library", help="Scope search to a single library (e.g. 'personal'). Use `ten libraries` to list."),
 ) -> None:
     """Search the index. Provide a text query, --image, --video, or any combination."""
     if not any([query, image, video]):
@@ -68,7 +69,7 @@ def search(
     from .search import Searcher
 
     s = Searcher()
-    hits = s.search(text=query, image_path=image, video_path=video, limit=limit)
+    hits = s.search(text=query, image_path=image, video_path=video, limit=limit, library=library)
 
     title_parts: list[str] = []
     if query:
@@ -169,6 +170,19 @@ def clips(
             cap,
         )
     console.print(table)
+
+
+@app.command()
+def libraries() -> None:
+    """List distinct libraries (parent dir names) currently in the index."""
+    from .store import Store
+
+    libs = Store().list_libraries()
+    if not libs:
+        console.print("[yellow]index is empty (or no clips have a library tag yet)[/yellow]")
+        return
+    for lib in libs:
+        console.print(lib)
 
 
 @app.command()

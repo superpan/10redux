@@ -81,6 +81,7 @@ class Searcher:
         video_path: Path | None = None,
         limit: int = 20,
         per_source: int | None = None,
+        library: str | None = None,
     ) -> list[Hit]:
         # per_source is the per-collection fetch depth. Must be at least `limit`,
         # otherwise rankings deeper than 50 disappear. Default to max(limit, 50).
@@ -98,7 +99,7 @@ class Searcher:
 
         if text:
             qv = self.text_embedder.embed_query(text)
-            text_hits = self.store.search_text(qv, limit=per_source)
+            text_hits = self.store.search_text(qv, limit=per_source, library=library)
             ranked_text = [(h.payload["clip_id"], h.payload) for h in text_hits]
             # Cross-encoder rerank rescues coarse bi-encoder ordering for the text side.
             if self.reranker is not None:
@@ -109,7 +110,7 @@ class Searcher:
         if image_path is not None or video_path is not None:
             frames = self._frames_from_query(image_path, video_path)
             vv = self.video_embedder.embed([frames])[0]
-            vis_hits = self.store.search_visual(vv, limit=per_source)
+            vis_hits = self.store.search_visual(vv, limit=per_source, library=library)
             rank_lists.append([(h.payload["clip_id"], h.payload) for h in vis_hits])
             active_sources.append("visual")
 
@@ -127,7 +128,7 @@ class Searcher:
                 # Pull a wide audio pool so the rerank top-K from text+visual is
                 # likely to overlap it. Top-K from audio alone almost never
                 # intersects top-K from text+visual.
-                audio_hits = self.store.search_audio(qa, limit=per_source)
+                audio_hits = self.store.search_audio(qa, limit=per_source, library=library)
                 audio_score_map = {h.payload["clip_id"]: float(h.score) for h in audio_hits}
             except Exception:
                 pass

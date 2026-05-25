@@ -108,21 +108,34 @@ def stats() -> dict:
 
 
 @app.get("/search")
-def api_search(q: str = Query(..., min_length=1), limit: int = 20) -> dict:
-    hits = searcher().search(text=q, limit=limit)
-    return {"query": q, "hits": [_hit_to_json(h) for h in hits]}
+def api_search(
+    q: str = Query(..., min_length=1),
+    limit: int = 20,
+    library: str | None = Query(None, description="Filter to a single library (e.g. 'personal')."),
+) -> dict:
+    hits = searcher().search(text=q, limit=limit, library=library)
+    return {"query": q, "library": library, "hits": [_hit_to_json(h) for h in hits]}
 
 
 @app.post("/search/image")
-async def api_search_image(file: UploadFile = File(...), limit: int = 20) -> dict:
+async def api_search_image(
+    file: UploadFile = File(...),
+    limit: int = 20,
+    library: str | None = Query(None),
+) -> dict:
     raw = await file.read()
     img = Image.open(io.BytesIO(raw)).convert("RGB")
     tmp = CONFIG.data_dir / "_query_uploads"
     tmp.mkdir(parents=True, exist_ok=True)
     path = tmp / (file.filename or "upload.jpg")
     img.save(path, format="JPEG")
-    hits = searcher().search(image_path=path, limit=limit)
-    return {"query": f"<image:{file.filename}>", "hits": [_hit_to_json(h) for h in hits]}
+    hits = searcher().search(image_path=path, limit=limit, library=library)
+    return {"query": f"<image:{file.filename}>", "library": library, "hits": [_hit_to_json(h) for h in hits]}
+
+
+@app.get("/libraries")
+def api_libraries() -> dict:
+    return {"libraries": store().list_libraries()}
 
 
 @app.get("/clip/{clip_id}")

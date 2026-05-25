@@ -14,17 +14,34 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [playing, setPlaying] = useState(null);
+  const [libraries, setLibraries] = useState([]);
+  const [library, setLibrary] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("ten.library") || "";
+  });
 
   useEffect(() => {
     fetch("/stats").then((r) => r.json()).then(setStats).catch(() => {});
+    fetch("/libraries")
+      .then((r) => r.json())
+      .then((d) => setLibraries(d.libraries || []))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ten.library", library);
+    }
+  }, [library]);
 
   async function doSearch(e) {
     e?.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     try {
-      const r = await fetch(`/search?q=${encodeURIComponent(query)}&limit=24`);
+      const params = new URLSearchParams({ q: query, limit: "24" });
+      if (library) params.set("library", library);
+      const r = await fetch(`/search?${params.toString()}`);
       const data = await r.json();
       setHits(data.hits || []);
     } finally {
@@ -50,6 +67,20 @@ export default function Page() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        {libraries.length > 0 && (
+          <select
+            value={library}
+            onChange={(e) => setLibrary(e.target.value)}
+            title="Scope search to a single library (parent dir of indexed videos)"
+          >
+            <option value="">all libraries</option>
+            {libraries.map((lib) => (
+              <option key={lib} value={lib}>
+                {lib}
+              </option>
+            ))}
+          </select>
+        )}
         <button type="submit" disabled={loading}>
           {loading ? "searching…" : "search"}
         </button>

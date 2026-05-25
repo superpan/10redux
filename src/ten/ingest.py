@@ -215,6 +215,7 @@ def _flush(
                 caption=caption,
                 thumb_path=str(thumb.resolve()),
                 transcript=transcript,
+                library=clip.video_path.resolve().parent.name,
             )
         )
 
