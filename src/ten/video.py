@@ -18,6 +18,48 @@ from PIL import Image
 VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".wmv"}
 
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=8192)
+def _video_rotation(video_path: str) -> int:
+    """Return display rotation in CCW degrees (0/90/180/270) for a video.
+
+    iPhone (and many other phone) videos store sensor-orientation pixels with a
+    display-matrix side-data tag specifying the rotation needed to display them
+    correctly. PyAV's `frame.to_ndarray()` ignores this tag and returns raw
+    landscape pixels, so we need to read the tag and apply `np.rot90` to frames
+    ourselves. Without this every iPhone-portrait clip would be ingested
+    sideways (wrong captions, wrong embeddings, wrong thumbnails).
+
+    Probed via ffprobe (~50–200 ms once per file, cached). Returns 0 if no
+    rotation tag is present (already-correct codec orientation).
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-select_streams", "v:0",
+                "-show_entries", "stream_side_data=rotation",
+                "-of", "default=nw=1:nk=1",
+                video_path,
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        line = (result.stdout or "").strip().splitlines()
+        rot = int(line[0]) if line and line[0].lstrip("-").isdigit() else 0
+    except Exception:
+        return 0
+    # Normalize to [0, 360) and snap to nearest 90.
+    return ((rot % 360) // 90) * 90
+
+
+def _apply_rotation(img: np.ndarray, rotation_ccw_deg: int) -> np.ndarray:
+    """Apply CCW rotation in 90° steps. `np.rot90(k=1)` is CCW by 90°."""
+    if not rotation_ccw_deg:
+        return img
+    return np.rot90(img, k=rotation_ccw_deg // 90)
+
+
 @dataclass(frozen=True)
 class VideoMeta:
     path: Path
@@ -83,10 +125,15 @@ def walk_videos(root: Path) -> list[Path]:
 def sample_clip_frames(clip: Clip, num_frames: int, resize: int) -> np.ndarray:
     """Decode `num_frames` uniformly spaced RGB frames from the clip window.
 
+    Frames are display-rotated per the container's display-matrix tag, so the
+    captioner and visual encoder see upright pixels regardless of how the
+    camera held the sensor (cf. `_video_rotation`).
+
     Returns array shaped (num_frames, H, W, 3) uint8.
     """
     target_times = np.linspace(clip.t_start, clip.t_end, num_frames + 1)[:num_frames]
     frames: list[np.ndarray] = []
+    rotation = _video_rotation(str(clip.video_path.resolve()))
 
     with av.open(str(clip.video_path)) as container:
         stream = next(s for s in container.streams if s.type == "video")
@@ -107,6 +154,7 @@ def sample_clip_frames(clip: Clip, num_frames: int, resize: int) -> np.ndarray:
             while target_idx < num_frames and t >= target_times[target_idx]:
                 use = frame if last_frame is None else last_frame
                 img = use.to_ndarray(format="rgb24")
+                img = _apply_rotation(img, rotation)
                 frames.append(_resize_frame(img, resize))
                 target_idx += 1
             last_frame = frame
@@ -137,8 +185,13 @@ def _resize_frame(img: np.ndarray, short_side: int) -> np.ndarray:
 
 
 def write_thumbnail(clip: Clip, out_path: Path, resize: int = 320) -> None:
-    """Grab the middle frame of the clip and save as JPEG."""
+    """Grab the middle frame of the clip and save as JPEG.
+
+    Applies the container's display rotation (cf. `_video_rotation`) so
+    portrait phone footage doesn't land sideways.
+    """
     t_mid = (clip.t_start + clip.t_end) / 2
+    rotation = _video_rotation(str(clip.video_path.resolve()))
     with av.open(str(clip.video_path)) as container:
         stream = next(s for s in container.streams if s.type == "video")
         stream.thread_type = "AUTO"
@@ -151,6 +204,7 @@ def write_thumbnail(clip: Clip, out_path: Path, resize: int = 320) -> None:
             t = float(frame.pts * time_base) if frame.pts is not None else 0.0
             if t >= t_mid:
                 img = frame.to_ndarray(format="rgb24")
+                img = _apply_rotation(img, rotation)
                 pil = Image.fromarray(_resize_frame(img, resize))
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 pil.save(out_path, format="JPEG", quality=82)
