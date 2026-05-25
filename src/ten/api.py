@@ -203,7 +203,16 @@ def api_thumb(clip_id: str) -> FileResponse:
             ),
             path,
         )
-    return FileResponse(path, media_type="image/jpeg")
+    # `no-cache` = must revalidate before using cached copy. Pairs with the
+    # Last-Modified header FileResponse sets so the browser issues an
+    # If-Modified-Since and the server replies 304 if the thumb is unchanged.
+    # Without this, Safari and Chrome aggressively cache JPEGs and never
+    # notice when we regenerate a thumb (e.g., post-rotation backfill).
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.get("/clip/{clip_id}/stream")
