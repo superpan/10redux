@@ -260,6 +260,97 @@ R@1 is essentially unchanged (within run noise). The R@5 / R@10 / mean-rank drif
 
 CLAP ships **opt-in** (`TEN_CLAP_BACKEND=clap`) and **reranker-only** (no equal-weight RRF path exposed). For visual-description query distributions it's at-worst a no-op. The interesting unlock is an audio-explicit query surface (e.g., a future `/search-audio` endpoint or a query router); the bounded reranker is a safety-first stepping stone, not the end state.
 
+## External baseline — TwelveLabs Marengo 3.0 on the same QVH pilot
+
+To ground ten's caption-mediated retrieval against a dedicated end-to-end video-text foundation model, we re-ran the QVHighlights 100-video pilot through the [TwelveLabs](https://twelvelabs.io) v1.3 API (model `marengo3.0`, `search_options=[visual, audio]`). Same 100 videos uploaded as-is, same 100 queries, same top-vid-match metric.
+
+Quick stack reminder so the comparison is fair:
+
+| capability | ten | TwelveLabs Marengo 3.0 |
+|---|---|---|
+| Visual | V-JEPA 2 frame vectors + Qwen3-VL captions embedded by Qwen3-Embedding | end-to-end video encoder, joint with text |
+| Speech | Whisper-large-v3 (VAD-gated); transcript concatenated into the caption text before embedding | end-to-end, audio jointly trained with visual + text |
+| Non-speech audio | LAION CLAP; runs as a bounded post-fusion reranker on the head | same model handles all audio |
+
+So this isn't *"end-to-end vs no audio"* — both systems have visual + speech + non-speech audio. The interesting question is whether **jointly-trained multimodal** beats **chained separately-trained encoders**, and where.
+
+### Headline
+
+| metric | TwelveLabs (marengo3.0) | ten (full stack) | Δ |
+|---|---:|---:|---:|
+| top-vid R@1 | **0.770** | 0.680 | +0.090 |
+| top-vid R@5 | **0.930** | 0.840 | +0.090 |
+| top-vid R@10 | **0.950** | 0.880 | +0.070 |
+| top-vid R@20 | **0.970** | 0.940 | +0.030 |
+
+The gap shrinks as K grows — the systems agree more on *which* videos are plausible than on *how* to rank them. Median rank is 1.0 for both; mean rank is 1.61 (TL) vs 2.62 (ten). Same head, fatter tail on ten.
+
+### Where the +9 pp at R@1 actually comes from
+
+The point-by-point picture is sharper than the headline. Bucketing 100 queries by who hit R@1:
+
+| bucket | n | % |
+|---|---:|---:|
+| Both R@1 | 59 | 59% |
+| **TL R@1, ten miss top-5** | **9** | **9%** ← exactly the +9 pp |
+| ten R@1, TL miss top-5 | 1 | 1% |
+| Both miss top-20 | 3 | 3% |
+| Mixed (both close, neither tied at 1) | 28 | 28% |
+
+The headline gap is **9 specific queries**:
+
+> *"A video blogger talking and eating" (ten rank 20)*<br>
+> *"A group of men is walking in a deserted path" (20)*<br>
+> *"A woman in a gray romper showing off her outfit" (53)*<br>
+> *"Woman gives a monologue lying in bed" (13)*<br>
+> *"A person makes a gift package while sitting at a table" (16)*<br>
+> *"A man and group of men in white sing and play music together" (12)*<br>
+> *"Two men are walking next to a river" (7)*<br>
+> *"A woman goes to a restaurant and gets food" (181)*<br>
+> *"Woman showing the content of a plastic basket" (7)*
+
+The lone query ten won (TL rank 6, ten rank 1) is the opposite shape: a specific visual detail — *"Striped shirt woman sits in a desk in her bedroom"*.
+
+### Two distinct mechanisms drive the gap
+
+Reading the 9 queries closely, the gap splits into two effects, not one.
+
+**Effect 1 — clip-level captioning misses video-level gestalt** *(6 of 9 queries)*
+
+Six of the nine — *walking in a deserted path*, *goes to a restaurant*, *makes a gift package*, *showing off her outfit*, *walking next to a river*, *showing the content of a plastic basket* — are broad scene/activity descriptions of the whole video. Ten captions each 10 s clip independently from 8 sampled frames. A 150 s video produces ~15 separate captions, each describing what's salient *in that 10 s window*. *"Two men walking next to a river"* as a video-level gestalt only surfaces if some specific 10 s window happens to caption both "men" and "river" together — which often doesn't happen, even when the full video is unambiguously about that. TL learned video-level associations directly through end-to-end training, so the video as a whole can activate the right region of its joint embedding space without needing per-window keyword coincidence.
+
+**Effect 2 — chained audio encoders miss abstract speech-act semantics** *(3 of 9 queries)*
+
+Three of the nine — *talking and eating*, *gives a monologue*, *sing and play music* — are *abstract speech-act* descriptions. Ten *does* have audio:
+
+- **Whisper** transcribes *actual words spoken* — *"hi guys today I'm trying out…"*. The query word *"monologue"* does not appear in the transcript, so the text embedding never lights up on it.
+- **CLAP** does align audio content with text semantically and would catch *"monologue"* or *"sing"* directly — but ten runs CLAP as a bounded reranker on top-K=30, not as a primary retrieval channel ([motivation](#clap-audio-embeddings--pilot-on-qvhighlights)). If the GT video isn't already in the top-30 from text+visual, CLAP can't pull it in.
+
+TL Marengo 3.0 was end-to-end trained on millions of video-text pairs, so the association from *sustained-single-speaker audio* to *"monologue"*, and from *polyphonic vocals + instrumentation* to *"sing and play music"*, is in the model weights — not in a separate post-hoc reranker.
+
+The query-feature heatmap matches this split:
+
+| bucket | n | %visually-specific | %speech-cued | avg words |
+|---|---:|---:|---:|---:|
+| Both R@1 | 59 | 32% | 8% | 10.6 |
+| TL-only R@1 | 9 | 22% | **22%** | 9.8 |
+| ten-only R@1 | 1 | **100%** | 0% | 10.0 |
+| Both missed | 3 | 0% | 33% | 13.0 |
+
+TL-only-R@1 has roughly 3× the baseline rate of speech-cued queries (22% vs 8%) — consistent with effect 2. The other 78% of TL-only-R@1 queries are broad scene gestalt — consistent with effect 1.
+
+### Where the gap could close
+
+The mechanism analysis maps directly to three actionable changes:
+
+1. **A video-level caption alongside per-clip captions.** After per-clip captioning, ask Qwen3-VL once more for *"the overall setting and activity in one sentence"* and store it as a separate vector tagged to every clip of that video. Catches effect 1 without re-architecting the clip granularity that makes moment retrieval work.
+2. **Promote CLAP from reranker to peer channel for audio-cued queries.** Either a lightweight query router (cue words → enable CLAP as a peer source) or simply raising the rerank weight and top-K. Catches effect 2 — at the risk of resurfacing the [RRF regression we measured earlier on visual queries](#clap-audio-embeddings--pilot-on-qvhighlights). Routing keeps the upside without that downside.
+3. **A small contrastive head trained on ten's own ingest output.** caption ↔ frame ↔ audio triples from past ingests already sit in Qdrant — train a small joint projection head to close both gaps without the open-weight constraint. Real training infra and a fine-tuning loop; biggest change.
+
+In ascending order of effort and ambition: **#1 alone likely closes ~60% of the gap (6 of 9 queries), #1 + #2 likely closes the rest, #3 is the only path to actually catching Marengo on a query distribution this size.**
+
+Per-query results in `data/eval/twelvelabs_qvh_pilot.json`; `tools/eval_twelvelabs.py` re-runs against a fresh TL account. Mapping of QVH vid → TL video_id in `data/eval/twelvelabs_qvh_pilot_mapping.json` (account-specific, kept for reference).
+
 ## Reproduce
 
 ```bash

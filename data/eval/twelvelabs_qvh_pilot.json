@@ -1,0 +1,822 @@
+{
+  "summary": {
+    "system": "twelvelabs:marengo3.0",
+    "n_queries": 100,
+    "n_resolved_videos": 100,
+    "top_vid_R@1": 0.77,
+    "top_vid_R@5": 0.93,
+    "top_vid_R@10": 0.95,
+    "top_vid_R@20": 0.97,
+    "median_rank": 1,
+    "n_missed": 3
+  },
+  "ten_summary": {
+    "top_vid_R@1": 0.68,
+    "top_vid_R@5": 0.84,
+    "top_vid_R@10": 0.88,
+    "top_vid_R@20": 0.94,
+    "system": "ten (caption-mediated)"
+  },
+  "per_query": [
+    {
+      "qid": 2435,
+      "query": "Man is wearing a yellow blanket around himself.",
+      "vid": "-_s0sXOfS3w_210.0_360.0",
+      "tl_video_id": "6a1f5f170e3b03d2719ad49a",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 2875,
+      "query": "A video blogger talking and eating",
+      "vid": "-_s0sXOfS3w_360.0_510.0",
+      "tl_video_id": "6a1f5f00aa285fabcad8576a",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 3938,
+      "query": "A man shaves his beard looks in a mirror and talks to the camera.",
+      "vid": "-_s0sXOfS3w_60.0_210.0",
+      "tl_video_id": "6a1f5f1b3f273436ad5bea24",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8312,
+      "query": "A guy with grey top is showing a box filled with rubbish.",
+      "vid": "-_s0sXOfS3w_510.0_660.0",
+      "tl_video_id": "6a1f5f02f70703717fef0e59",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1813,
+      "query": "Man in striped shirt helps the girl shop for clothes.",
+      "vid": "2iW3ei-5fpE_210.0_360.0",
+      "tl_video_id": "6a1f5f1d258555d6ea92e068",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 2364,
+      "query": "A traveler girl experiences heartbreak at a Japanese mall dress shop",
+      "vid": "2iW3ei-5fpE_360.0_510.0",
+      "tl_video_id": "6a1f5f047f2776c17f6f2d62",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 3378,
+      "query": "A woman in red T-shirt is talking behind a huge stair case.",
+      "vid": "2iW3ei-5fpE_60.0_210.0",
+      "tl_video_id": "6a1f5f08df3693601774edc4",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 9737,
+      "query": "A graph depicts penis size.",
+      "vid": "0q1jKhD8UZ0_360.0_510.0",
+      "tl_video_id": "6a1f5efedf3693601774edb4",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 10269,
+      "query": "Man walks around a factory with a worker in a safety vest before interviewing him.",
+      "vid": "0q1jKhD8UZ0_60.0_210.0",
+      "tl_video_id": "6a1f5f1a0e3b03d2719ad4a2",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10294,
+      "query": "Doctor is interviewed in their office.",
+      "vid": "0q1jKhD8UZ0_210.0_360.0",
+      "tl_video_id": "6a1f5efd0e3b03d2719ad47a",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 3307,
+      "query": "Masked airport worker helps the videographer.",
+      "vid": "109g6BhejP0_60.0_210.0",
+      "tl_video_id": "6a1f5f16df3693601774edd5",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 4457,
+      "query": "Flight widow view of flying and landing",
+      "vid": "109g6BhejP0_210.0_360.0",
+      "tl_video_id": "6a1f5f1a7f2776c17f6f2d83",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6288,
+      "query": "A black man in a red sweater is sprawling around in bed.",
+      "vid": "109g6BhejP0_360.0_510.0",
+      "tl_video_id": "6a1f5efd7f2776c17f6f2d58",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4266,
+      "query": "An Asian girl wearing a white face mask with a heart on it walking on the street",
+      "vid": "0zDV_cVzPiI_60.0_210.0",
+      "tl_video_id": "6a1f5f0df9c7f82aa11371aa",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6590,
+      "query": "Phones are being screencast on a smart TV that is hanging on the wall.",
+      "vid": "0zDV_cVzPiI_360.0_510.0",
+      "tl_video_id": "6a1f5f0c258555d6ea92e04f",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6656,
+      "query": "A young woman  in a green jacket films her outfits on the mirror.",
+      "vid": "0zDV_cVzPiI_210.0_360.0",
+      "tl_video_id": "6a1f5f0d3f273436ad5bea0d",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9684,
+      "query": "A marching band marches their way down the street during a parade.",
+      "vid": "5wDSfYr9bgU_210.0_360.0",
+      "tl_video_id": "6a1f5f06f70703717fef0e60",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10033,
+      "query": "People vote in little cubicles.",
+      "vid": "5wDSfYr9bgU_60.0_210.0",
+      "tl_video_id": "6a1f5f0b0e3b03d2719ad48d",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10229,
+      "query": "Sailors in white uniform are marching down a street in a parade together.",
+      "vid": "5wDSfYr9bgU_360.0_510.0",
+      "tl_video_id": "6a1f5f13f70703717fef0e6c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9927,
+      "query": "Different website headlines are shown from Danger & Play.",
+      "vid": "-dB_W38mCRM_60.0_210.0",
+      "tl_video_id": "6a1f5f1d75769329d8e17f8c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10210,
+      "query": "Different tweets are shown in black and white.",
+      "vid": "-dB_W38mCRM_360.0_510.0",
+      "tl_video_id": "6a1f5f160e3b03d2719ad497",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10267,
+      "query": "Man and woman have a interview across the table.",
+      "vid": "-dB_W38mCRM_210.0_360.0",
+      "tl_video_id": "6a1f5f1e75769329d8e17f91",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 12,
+      "query": "Asian woman holds up beauty products to the camera.",
+      "vid": "2vFzBa_WKNg_210.0_360.0",
+      "tl_video_id": "6a1f5f01f9c7f82aa113719b",
+      "top_vid_match_rank": 3,
+      "n_hits": 50
+    },
+    {
+      "qid": 1337,
+      "query": "Woman does a close up of the blue skin care cream.",
+      "vid": "2vFzBa_WKNg_60.0_210.0",
+      "tl_video_id": "6a1f5f1caa285fabcad85780",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5238,
+      "query": "An woman in a black mask is shopping in a department store with help from a retail associate in a blue mask.",
+      "vid": "2vFzBa_WKNg_360.0_510.0",
+      "tl_video_id": "6a1f5f077f2776c17f6f2d66",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 7585,
+      "query": "Vlogger shows a grocery cart full for produce.",
+      "vid": "2vFzBa_WKNg_510.0_660.0",
+      "tl_video_id": "6a1f5f03df3693601774edc0",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8605,
+      "query": "A lady with white top is talking through the Dior make up she bought.",
+      "vid": "2vFzBa_WKNg_660.0_810.0",
+      "tl_video_id": "6a1f5f1ff9c7f82aa11371bf",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 666,
+      "query": "Overhead shots of food in restaurants.",
+      "vid": "3fESWnyZC0o_60.0_210.0",
+      "tl_video_id": "6a1f5f1bdf3693601774eddd",
+      "top_vid_match_rank": 11,
+      "n_hits": 50
+    },
+    {
+      "qid": 2166,
+      "query": "Two girls having ravoli, lasagne, salad and a drink for their lunch",
+      "vid": "3fESWnyZC0o_360.0_510.0",
+      "tl_video_id": "6a1f5f15f70703717fef0e71",
+      "top_vid_match_rank": 3,
+      "n_hits": 50
+    },
+    {
+      "qid": 3099,
+      "query": "Women are riding on a train together.",
+      "vid": "3fESWnyZC0o_210.0_360.0",
+      "tl_video_id": "6a1f5f125be3f5c487a5b9f9",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5758,
+      "query": "A black screen with texts describing events not shown in the video.",
+      "vid": "0U3-7Ey3siA_210.0_360.0",
+      "tl_video_id": "6a1f5f12f9c7f82aa11371b2",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 7601,
+      "query": "A man is intimidated by some delicious food on a platter.",
+      "vid": "0U3-7Ey3siA_360.0_510.0",
+      "tl_video_id": "6a1f5f0eaa285fabcad85771",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 7670,
+      "query": "Man in hoodie talks to camera by a white van.",
+      "vid": "0U3-7Ey3siA_60.0_210.0",
+      "tl_video_id": "6a1f5f050e3b03d2719ad486",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1386,
+      "query": "An Indian young woman walking a running around the city while talking to the camera",
+      "vid": "3Bk5MJEo2EA_360.0_510.0",
+      "tl_video_id": "6a1f5f115be3f5c487a5b9f8",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 1586,
+      "query": "A girl doing her face make up",
+      "vid": "3Bk5MJEo2EA_210.0_360.0",
+      "tl_video_id": "6a1f5eff75769329d8e17f63",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 3952,
+      "query": "Couple sharing there breakfast menue",
+      "vid": "3Bk5MJEo2EA_60.0_210.0",
+      "tl_video_id": "6a1f5f035be3f5c487a5b9eb",
+      "top_vid_match_rank": 20,
+      "n_hits": 50
+    },
+    {
+      "qid": 7066,
+      "query": "Vlogger walks past the desert counter.",
+      "vid": "3Bk5MJEo2EA_510.0_660.0",
+      "tl_video_id": "6a1f5f0775769329d8e17f70",
+      "top_vid_match_rank": null,
+      "n_hits": 50
+    },
+    {
+      "qid": 8375,
+      "query": "A woman talks about the jewelry she bought today",
+      "vid": "3Bk5MJEo2EA_660.0_810.0",
+      "tl_video_id": "6a1f5f14df3693601774edcf",
+      "top_vid_match_rank": 5,
+      "n_hits": 50
+    },
+    {
+      "qid": 755,
+      "query": "People are stopped in the road feeding monkeys.",
+      "vid": "5JOEKQhV1UA_60.0_210.0",
+      "tl_video_id": "6a1f5f175be3f5c487a5b9ff",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 2126,
+      "query": "A dad's fun ride with his kid in a jungle",
+      "vid": "5JOEKQhV1UA_210.0_360.0",
+      "tl_video_id": "6a1f5effdf3693601774edb5",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5687,
+      "query": "Father rides in a metal seat with his daughter.",
+      "vid": "5JOEKQhV1UA_360.0_510.0",
+      "tl_video_id": "6a1f5f103f273436ad5bea13",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 2124,
+      "query": "Indian family ride in rakshaw",
+      "vid": "3UPP_WRL86c_60.0_210.0",
+      "tl_video_id": "6a1f5f19f70703717fef0e77",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 2342,
+      "query": "Striped shirt woman sits in a desk in her bedroom.",
+      "vid": "3UPP_WRL86c_360.0_510.0",
+      "tl_video_id": "6a1f5f040e3b03d2719ad483",
+      "top_vid_match_rank": 6,
+      "n_hits": 50
+    },
+    {
+      "qid": 4510,
+      "query": "The view from a train window.",
+      "vid": "3UPP_WRL86c_210.0_360.0",
+      "tl_video_id": "6a1f5f1675769329d8e17f87",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9545,
+      "query": "A group of men is walking in a deserted path.",
+      "vid": "4G9S-eoLgX4_210.0_360.0",
+      "tl_video_id": "6a1f5efdaa285fabcad85767",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9985,
+      "query": "Soldiers are escorting people walking down a dirt road.",
+      "vid": "4G9S-eoLgX4_360.0_510.0",
+      "tl_video_id": "6a1f5f0e3f273436ad5bea0e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10309,
+      "query": "Google maps of the desert is shown with red circles.",
+      "vid": "4G9S-eoLgX4_60.0_210.0",
+      "tl_video_id": "6a1f5efddf3693601774edb3",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9214,
+      "query": "Weather reporter reports about winter storm",
+      "vid": "0lbehz52PFU_60.0_210.0",
+      "tl_video_id": "6a1f5f15df3693601774edd2",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 9304,
+      "query": "A TV newscast reports on people digging out from the snow at homes and roadways",
+      "vid": "0lbehz52PFU_210.0_360.0",
+      "tl_video_id": "6a1f5f190e3b03d2719ad4a1",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9862,
+      "query": "A visual rundown of Tanzanian constitution aired on the news.",
+      "vid": "0Yf4z13YlrY_210.0_360.0",
+      "tl_video_id": "6a1f5f1ef70703717fef0e7c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10022,
+      "query": "Black people wearing green outfits are speaking at a press conference with a green backdrop.",
+      "vid": "0Yf4z13YlrY_60.0_210.0",
+      "tl_video_id": "6a1f5f1a5be3f5c487a5ba05",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 3126,
+      "query": "Woman with white hat walks down the street in a white hat.",
+      "vid": "2BzoQ31IPhk_210.0_360.0",
+      "tl_video_id": "6a1f5efef9c7f82aa1137198",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6519,
+      "query": "An asian woman is eating a pastry item in a cone",
+      "vid": "2BzoQ31IPhk_60.0_210.0",
+      "tl_video_id": "6a1f5f0b7f2776c17f6f2d6f",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8061,
+      "query": "Two Asian women are walking throughout the city together.",
+      "vid": "2BzoQ31IPhk_360.0_510.0",
+      "tl_video_id": "6a1f5f1b3f273436ad5bea22",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1970,
+      "query": "A group of young people check into their AirBnB... and love it",
+      "vid": "13U4xVzZFQ8_360.0_510.0",
+      "tl_video_id": "6a1f5f113f273436ad5bea16",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 7946,
+      "query": "A woman in a gray romper is showing off her outfit and modeling in different poses.",
+      "vid": "13U4xVzZFQ8_60.0_210.0",
+      "tl_video_id": "6a1f5f0af70703717fef0e63",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8216,
+      "query": "Women lie on the ground together.",
+      "vid": "13U4xVzZFQ8_210.0_360.0",
+      "tl_video_id": "6a1f5f10f9c7f82aa11371af",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 778,
+      "query": "Chef makes dinner in a restaurant.",
+      "vid": "5oucQKLn88A_60.0_210.0",
+      "tl_video_id": "6a1f5f18258555d6ea92e061",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5775,
+      "query": "Woman in pink sari drinks a cocktail.",
+      "vid": "5oucQKLn88A_210.0_360.0",
+      "tl_video_id": "6a1f5f02f9c7f82aa113719e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6532,
+      "query": "A woman with a bun hairstyle sits in the shallow waters of the beach and relaxes there.",
+      "vid": "5oucQKLn88A_360.0_510.0",
+      "tl_video_id": "6a1f5eff3f273436ad5be9fc",
+      "top_vid_match_rank": null,
+      "n_hits": 50
+    },
+    {
+      "qid": 1221,
+      "query": "Boy opens toy car and shows it off.",
+      "vid": "4-0FTFa0WjM_360.0_510.0",
+      "tl_video_id": "6a1f5f05258555d6ea92e044",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1464,
+      "query": "A little boy unwrapping some Christmas gifts",
+      "vid": "4-0FTFa0WjM_210.0_360.0",
+      "tl_video_id": "6a1f5f027f2776c17f6f2d5e",
+      "top_vid_match_rank": 3,
+      "n_hits": 50
+    },
+    {
+      "qid": 4847,
+      "query": "Family opens Christmas presents together.",
+      "vid": "4-0FTFa0WjM_60.0_210.0",
+      "tl_video_id": "6a1f5f06f9c7f82aa11371a6",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 296,
+      "query": "A woman is looking out over a misty valley through some trees.",
+      "vid": "-4Mlqc7PbZY_210.0_360.0",
+      "tl_video_id": "6a1f5f0b7f2776c17f6f2d6e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4135,
+      "query": "Woman showing the content of a plastic basket",
+      "vid": "-4Mlqc7PbZY_360.0_510.0",
+      "tl_video_id": "6a1f5f05f9c7f82aa11371a3",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4884,
+      "query": "A blonde woman is walking in the rain under a green floral umbrella.",
+      "vid": "-4Mlqc7PbZY_60.0_210.0",
+      "tl_video_id": "6a1f5f0f5be3f5c487a5b9f5",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8859,
+      "query": "Different cards are on display on a shelf.",
+      "vid": "-4Mlqc7PbZY_510.0_660.0",
+      "tl_video_id": "6a1f5f193f273436ad5bea1e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 686,
+      "query": "Woman gives a monologue lying in bed.",
+      "vid": "23YBs2JxE-k_360.0_510.0",
+      "tl_video_id": "6a1f5f11258555d6ea92e054",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 2093,
+      "query": "A lady's video before the take-off of a plane",
+      "vid": "23YBs2JxE-k_210.0_360.0",
+      "tl_video_id": "6a1f5f14f70703717fef0e70",
+      "top_vid_match_rank": 3,
+      "n_hits": 50
+    },
+    {
+      "qid": 2309,
+      "query": "A traveller on the way to airport from a car and witnessing empty roads",
+      "vid": "23YBs2JxE-k_60.0_210.0",
+      "tl_video_id": "6a1f5f09258555d6ea92e049",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 395,
+      "query": "Woman holds her a lobster coffee mug.",
+      "vid": "00DH3yn5C30_60.0_210.0",
+      "tl_video_id": "6a1f5f0975769329d8e17f76",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4837,
+      "query": "Woman makes herself a sandwich.",
+      "vid": "00DH3yn5C30_360.0_510.0",
+      "tl_video_id": "6a1f5f0d75769329d8e17f79",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5250,
+      "query": "A person makes a gift package while sitting at a table.",
+      "vid": "00DH3yn5C30_210.0_360.0",
+      "tl_video_id": "6a1f5f0cf9c7f82aa11371a9",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 7314,
+      "query": "Woman is wearing a large red scarf.",
+      "vid": "00DH3yn5C30_660.0_810.0",
+      "tl_video_id": "6a1f5f100e3b03d2719ad493",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8294,
+      "query": "a woman shows the camera an enamel pin",
+      "vid": "00DH3yn5C30_510.0_660.0",
+      "tl_video_id": "6a1f5f0b7f2776c17f6f2d70",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4349,
+      "query": "The food counter of a restaurant and the bag left on it.",
+      "vid": "4bCnOd17KNM_360.0_510.0",
+      "tl_video_id": "6a1f5eff5be3f5c487a5b9e2",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 6472,
+      "query": "Underwater views of whale sharks and people swimming with them.",
+      "vid": "4bCnOd17KNM_60.0_210.0",
+      "tl_video_id": "6a1f5f1f258555d6ea92e06c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 6879,
+      "query": "A man in a safety helmet stands near a pool of water in the jungle.",
+      "vid": "4bCnOd17KNM_210.0_360.0",
+      "tl_video_id": "6a1f5f19258555d6ea92e064",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 738,
+      "query": "A woman eating burgers from a place with red wrappers.",
+      "vid": "2D67JzF1Vpk_360.0_510.0",
+      "tl_video_id": "6a1f5f1475769329d8e17f7e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4181,
+      "query": "Man stands in front of a wall with butterflies on the wall.",
+      "vid": "2D67JzF1Vpk_60.0_210.0",
+      "tl_video_id": "6a1f5f083f273436ad5bea03",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 5415,
+      "query": "A man is petting and feeding his black and white cat.",
+      "vid": "2D67JzF1Vpk_210.0_360.0",
+      "tl_video_id": "6a1f5f12258555d6ea92e058",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 2160,
+      "query": "A couple chilling on a beach sand",
+      "vid": "2X46BBkcCeY_360.0_510.0",
+      "tl_video_id": "6a1f5f0475769329d8e17f6c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4474,
+      "query": "Man and woman stand in front of a circular siver sculpture.",
+      "vid": "2X46BBkcCeY_60.0_210.0",
+      "tl_video_id": "6a1f5f017f2776c17f6f2d5b",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 8239,
+      "query": "Man and woman lie in bed together.",
+      "vid": "2X46BBkcCeY_210.0_360.0",
+      "tl_video_id": "6a1f5f1ef70703717fef0e7d",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1400,
+      "query": "Teen girl does her skin care routine.",
+      "vid": "2boYI6YVkCs_210.0_360.0",
+      "tl_video_id": "6a1f5f1ddf3693601774ede2",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1440,
+      "query": "Teen girl in sweatshirt looks sits in front of her laptop looking stressed.",
+      "vid": "2boYI6YVkCs_60.0_210.0",
+      "tl_video_id": "6a1f5f11f70703717fef0e66",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9898,
+      "query": "Graphics showing that the program will be discussing covid.",
+      "vid": "5BGa1HJslJA_360.0_510.0",
+      "tl_video_id": "6a1f5f0875769329d8e17f73",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10143,
+      "query": "A man and group of men in white sing and play music together.",
+      "vid": "5BGa1HJslJA_210.0_360.0",
+      "tl_video_id": "6a1f5f14258555d6ea92e05b",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 10160,
+      "query": "Man and woman sit on opposite sides of a circle desk.",
+      "vid": "5BGa1HJslJA_60.0_210.0",
+      "tl_video_id": "6a1f5f015be3f5c487a5b9e3",
+      "top_vid_match_rank": 7,
+      "n_hits": 50
+    },
+    {
+      "qid": 2506,
+      "query": "Woman rides in the car with headwrap and scarf.",
+      "vid": "-l-ZfQfRs3I_60.0_210.0",
+      "tl_video_id": "6a1f5f1d0e3b03d2719ad4a7",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9842,
+      "query": "Two men are walking next to a river.",
+      "vid": "63qdAAxHSwU_210.0_360.0",
+      "tl_video_id": "6a1f5f0c3f273436ad5bea08",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 9198,
+      "query": "Fires are burning up the trunks of tall trees in a forest as a reporter in orange shirt reports on the situation there while emergency vehicles drive past.",
+      "vid": "1rguOCdMIY8_210.0_360.0",
+      "tl_video_id": "6a1f5f0a0e3b03d2719ad489",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1985,
+      "query": "A guy filming from a hill top",
+      "vid": "4HeSJ7tMo48_60.0_210.0",
+      "tl_video_id": "6a1f5f1c5be3f5c487a5ba08",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 4232,
+      "query": "A man in sunglasses by a window is eating a noodle soup dish.",
+      "vid": "4HeSJ7tMo48_360.0_510.0",
+      "tl_video_id": "6a1f5f183f273436ad5bea1b",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4327,
+      "query": "Man without vest in gray stands in rocks with crazy camera moves.",
+      "vid": "4HeSJ7tMo48_210.0_360.0",
+      "tl_video_id": "6a1f5f175be3f5c487a5b9fe",
+      "top_vid_match_rank": 2,
+      "n_hits": 50
+    },
+    {
+      "qid": 9332,
+      "query": "Jamaican government officials describe efforts made for disaster preparedness",
+      "vid": "39AFfSOXl-8_210.0_360.0",
+      "tl_video_id": "6a1f5f0b0e3b03d2719ad48c",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 1177,
+      "query": "A woman visits an oriental shrine and drinks its water.",
+      "vid": "4IYQN95j6ok_60.0_210.0",
+      "tl_video_id": "6a1f5f09aa285fabcad8576e",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4333,
+      "query": "A woman goes to a restaurant and gets food.",
+      "vid": "4IYQN95j6ok_360.0_510.0",
+      "tl_video_id": "6a1f5f0e7f2776c17f6f2d77",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    },
+    {
+      "qid": 4543,
+      "query": "A woman walks along a street talking to the camera before meeting up with her friends.",
+      "vid": "4IYQN95j6ok_210.0_360.0",
+      "tl_video_id": "6a1f5f087f2776c17f6f2d69",
+      "top_vid_match_rank": null,
+      "n_hits": 50
+    },
+    {
+      "qid": 8994,
+      "query": "People walk through a glass tunnel.",
+      "vid": "4IYQN95j6ok_510.0_660.0",
+      "tl_video_id": "6a1f5f01df3693601774edbc",
+      "top_vid_match_rank": 1,
+      "n_hits": 50
+    }
+  ]
+}
