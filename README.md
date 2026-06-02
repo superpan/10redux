@@ -4,10 +4,10 @@ Open-weight video search for large libraries.
 
 - **Visual embeddings** — [V-JEPA 2](https://huggingface.co/facebook/vjepa2-vitl-fpc16-256-ssv2) (Meta; self-supervised, strong temporal understanding)
 - **Captions / summaries** — [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) (multi-image / video reasoning)
-- **ASR transcripts** *(opt-in)* — [Whisper-large-v3](https://huggingface.co/openai/whisper-large-v3) via HF transformers (default) or [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+- **ASR transcripts** *(opt-in)* — [Whisper-large-v3](https://huggingface.co/openai/whisper-large-v3), VAD-gated by [Silero](https://github.com/snakers4/silero-vad) so music / wind / silence don't produce hallucinated text
 - **Caption embeddings** — [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
 - **Audio embeddings** *(opt-in)* — [LAION CLAP](https://huggingface.co/laion/clap-htsat-fused), used as a bounded post-fusion reranker
-- **Vector index** — Qdrant, 2–3 collections; text+visual RRF-fused at query time, audio reranks the head
+- **Vector index** — Qdrant, 2–3 collections; text+visual RRF-fused at query time, audio reranks the head; each clip tagged with a `library` for scoped search
 - **API + UI** — FastAPI + Next.js 15
 - **CLI** — `ten`
 
@@ -123,13 +123,13 @@ Both above frozen CLIP-ViT/L (~0.32), below dedicated end-to-end video-text mode
 
 ## How it works
 
-1. **Index.** Each video is split into overlapping ~10 s clips. For every clip:
+1. **Index.** Each video is split into overlapping ~10 s clips. Frames are display-rotated per the container's tag so portrait phone footage isn't ingested sideways. For every clip:
    - **V-JEPA 2** produces a normalized visual vector (mean-pooled tokens) → `ten_visual`.
    - **Qwen3-VL** writes a 1–2 sentence caption; **Qwen3-Embedding** embeds it → `ten_text`.
-   - *(opt-in)* **Whisper** appends an ASR transcript to the caption before text embedding.
+   - *(opt-in)* **Whisper** appends an ASR transcript to the caption before text embedding; **Silero VAD** pre-gates Whisper so non-speech clips skip transcription entirely.
    - *(opt-in)* **LAION CLAP** produces a 512-d audio vector → `ten_audio`.
-   - All collections share the clip id; a JPEG thumbnail is cached for the UI.
-2. **Search.** Text query → caption-vector search + visual-vector search, fused with RRF. With audio enabled, CLAP reranks the head of the fused list (top-K only, score-thresholded, additive — never demotes; see knobs in [Configuration](#configuration)). Image/video queries route to V-JEPA only.
+   - The clip is tagged with a `library` (parent dir name of the source video) so search can scope to one ingest folder. A JPEG thumbnail is cached for the UI.
+2. **Search.** Text query → caption-vector search + visual-vector search, fused with RRF. With audio enabled, CLAP reranks the head of the fused list (top-K only, score-thresholded, additive — never demotes; see knobs in [Configuration](#configuration)). Image/video queries route to V-JEPA only. All search paths accept an optional `library=…` filter (`ten search --library personal`, REST `?library=personal`, or the UI dropdown).
 3. **Summarize on demand.** The "summarize" button (and `ten summary <clip_id>`) re-decodes the clip and asks Qwen3-VL for a paragraph summary. Cached in memory.
 
 The caption-embedding layout means a text-aligned video encoder is unnecessary — the LLM does the text alignment by writing captions, and you keep fast vector retrieval at query time.
@@ -194,12 +194,16 @@ All settings are env vars (see `src/ten/config.py`):
 |---|---|---|
 | `TEN_DATA_DIR` | `~/.local/share/ten` | Where thumbnails live (XDG-style; set to `.ten` for the old project-relative behavior) |
 | `TEN_QDRANT_URL` | `http://localhost:6333` | Qdrant endpoint |
+| `TEN_HOST` | `0.0.0.0` | FastAPI bind address; `0.0.0.0` lets clients elsewhere on the (tail)net reach the server. Set to `127.0.0.1` for localhost-only. |
+| `TEN_PORT` | `8765` | FastAPI port |
 | `TEN_VJEPA_MODEL` | `facebook/vjepa2-vitl-fpc16-256-ssv2` | Visual encoder |
 | `TEN_VLM_MODEL` | `Qwen/Qwen3-VL-8B-Instruct` | Captioner / summarizer |
 | `TEN_TEXT_EMBED_MODEL` | `Qwen/Qwen3-Embedding-0.6B` | Caption embedder |
 | `TEN_ASR_BACKEND` | `none` | `none` / `whisper` (HF transformers) / `fasterwhisper` |
 | `TEN_ASR_MODEL` | `large-v3` | Whisper variant — `tiny/base/small/medium/large-v3/large-v3-turbo` or full HF id |
 | `TEN_ASR_LANGUAGE` | *(auto)* | Force a language code (`en`, `es`, …) instead of auto-detect |
+| `TEN_VAD_BACKEND` | `none` | `none` / `silero` — Silero VAD pre-gate on Whisper; non-speech clips skip ASR. No effect without ASR on. |
+| `TEN_VAD_MIN_SPEECH_FRACTION` | `0.10` | Min fraction of the clip Silero must mark as speech to invoke Whisper. Higher = stricter. |
 | `TEN_RERANKER_BACKEND` | `none` | `none` / `crossencoder` — enable Qwen3-Reranker over the bi-encoder's top-K |
 | `TEN_RERANKER_MODEL` | `Qwen/Qwen3-Reranker-0.6B` | Cross-encoder model id; works with any sentence-transformers CrossEncoder-compatible model |
 | `TEN_RERANKER_TOP_K` | `100` | Bi-encoder candidates to rescore per query. Lower = faster query (try 25 for ~4× speedup) |
