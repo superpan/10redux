@@ -9,6 +9,7 @@ Open-weight video search for large libraries.
 - **Audio embeddings** *(opt-in)* — [LAION CLAP](https://huggingface.co/laion/clap-htsat-fused), used as a bounded post-fusion reranker
 - **Vector index** — Qdrant, 2–3 collections; text+visual RRF-fused at query time, audio reranks the head; each clip tagged with a `library` for scoped search
 - **API + UI** — FastAPI + Next.js 15
+- **MCP server** — same FastAPI process exposes the search / inspect / summarize tools as an MCP endpoint at `/mcp/` for remote agents (Claude Code, Claude Desktop)
 - **CLI** — `ten`
 
 > **Status: personal experiment.** Exploring what video search looks like end-to-end with current open-weight models. APIs may change without notice. No support promises.
@@ -225,6 +226,25 @@ All settings are env vars (see `src/ten/config.py`):
 - **DGX Spark (Grace Blackwell GB10, aarch64, sm_121):** the project is pinned to the **PyTorch cu129 index** in `pyproject.toml`. cu128 omits `compute_120` PTX, which causes NVRTC to fail with `invalid value for --gpu-architecture` on first kernel JIT.
 - **decord is not installed** — no aarch64 wheels. Decoding goes through PyAV, which ships its own bundled libav so it doesn't conflict with a system `ffmpeg`.
 - **Qdrant is pinned to 1.12.4** because 1.18+ refuses to load segments written by 1.12. To upgrade Qdrant, do a clean re-index.
+
+## Connecting from Claude as MCP
+
+`ten serve` mounts an MCP endpoint at `/mcp/` on the same port as the REST API. From a Claude Code client elsewhere on the same network (a Mac, an iPhone via the app, another box):
+
+```bash
+claude mcp add ten --transport http --url http://<your-host>:8765/mcp/
+```
+
+Tools exposed:
+
+- `search` — natural-language search, optional `library=` scope
+- `inspect_clip` — full payload (caption, transcript, paths, timestamps)
+- `list_clips` — enumerate clips, optionally by `video_name`
+- `list_libraries` — distinct library tags in the index
+- `summarize_clip` — Qwen3-VL paragraph summary across `narrative|visual|motion|aesthetic`
+- `index_status` — Qdrant collection counts and per-library distribution
+
+There's no auth at the protocol level. The deployment assumption is that whatever fronts the FastAPI app gates access — Tailscale ACL, a reverse proxy, or a local-only `TEN_HOST=127.0.0.1` for stdio-style usage.
 
 ## Scaling
 

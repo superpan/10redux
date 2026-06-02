@@ -29,6 +29,7 @@ dependencies = [
     "soundfile>=0.13.1",
     "silero-vad>=5.1",
     "torchaudio",
+    "mcp>=1.2",
 ]
 
 [project.optional-dependencies]

@@ -15,6 +15,8 @@ Endpoints:
 from __future__ import annotations
 
 import io
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
@@ -30,7 +32,32 @@ from .store import Store
 from .summarize import DIMENSIONS, Span, Summarizer, make_summarizer
 from .video import Clip
 
-app = FastAPI(title="ten")
+# MCP server is imported here so its lifespan can be wired into FastAPI.
+# Falling back to None lets the rest of the API keep working if mcp is missing
+# or fails to import (e.g. partial install).
+try:
+    from .mcp_server import mcp as _mcp_server
+except Exception as _mcp_import_err:
+    _mcp_server = None
+    logging.getLogger("ten.api").warning(
+        "MCP server import failed; /mcp routes disabled: %s", _mcp_import_err
+    )
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # type: ignore[no-redef]
+    """FastMCP's streamable_http transport runs its session manager inside a
+    task group; without an active lifespan the first /mcp request blows up
+    with "Task group is not initialized". Chain it into FastAPI's lifespan.
+    """
+    if _mcp_server is None:
+        yield
+        return
+    async with _mcp_server.session_manager.run():
+        yield
+
+
+app = FastAPI(title="ten", lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -275,6 +302,15 @@ def _range_response(path: Path, request: Request) -> Response:
         "Content-Length": str(length),
     }
     return StreamingResponse(iter_file(), status_code=206, media_type=media_type, headers=headers)
+
+
+# MCP server — exposes search / inspect_clip / list_clips / list_libraries /
+# summarize_clip / index_status as MCP tools at /mcp/. Mount before the static
+# UI so its routes win over the catch-all `/` mount below. Lifespan wiring
+# (see `_lifespan` near the top) is what keeps the streamable_http session
+# manager alive across requests.
+if _mcp_server is not None:
+    app.mount("/mcp", _mcp_server.streamable_http_app())
 
 
 # Serve the built React frontend if present (mounted last so /api routes win).
