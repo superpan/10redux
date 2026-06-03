@@ -286,6 +286,15 @@ vLLM env vars:
 - **Quantization:** at >1M points, enable Qdrant int8 scalar quantization on the visual collection. ~4× smaller, negligible recall drop.
 - **Cold start:** first ingest downloads ~20 GB of weights. Subsequent runs warm up in ~30 s.
 
+## Further reading
+
+Longer-form design and context notes live in [`docs/`](docs/):
+
+- [`docs/production.md`](docs/production.md) — what ten looks like decomposed for a real multi-tenant service, and the metrics that matter in operation.
+- [`docs/2016_sota.md`](docs/2016_sota.md) — what you would have built instead in mid-2016, and which 2022–2023 model releases unlocked the current architecture.
+
+Measured quality (MSR-VTT, QVHighlights, ASR / VAD, CLAP, TwelveLabs baseline) lives in [`EVAL.md`](EVAL.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
