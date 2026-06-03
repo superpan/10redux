@@ -1,6 +1,14 @@
-# Branch: `audio-lm`
+# Branch: `audio-lm`  · status: spike — NOT FOR MERGE
 
-Replaces ten's chained Whisper + CLAP + Silero VAD audio stack with a single audio language model (default: **MOSS-Audio 4B Instruct**, with a stub for **Voxtral 3B**).
+Sketched the architectural shift to a single audio LM replacing Whisper + CLAP + Silero VAD. The wiring is functional but the model choices we could actually load on the Hub today don't deliver the captioning quality the architecture requires.
+
+This branch stays available for context; **don't merge as-is**. The next attempt should either vendor MOSS-Audio's `modeling_moss_audio.py` from their GitHub or wait for the Hub snapshot to ship it.
+
+---
+
+## What this branch tried
+
+Replaces ten's chained Whisper + CLAP + Silero VAD audio stack with a single audio language model.
 
 ## Why
 
@@ -69,4 +77,35 @@ This branch should not merge until at least one of:
 1. **Re-run the TwelveLabs eval comparison** on the QVHighlights pilot (re-ingest with `--audio-lm`, re-query, compare top-vid R@K against the current baseline in `data/eval/twelvelabs_qvh_pilot.json`). Goal: close ≥ 2 of the 3 abstract-speech-act queries from the current gap.
 2. **Personal-library qualitative check** — verify that *"a woman giving a monologue"* / *"singing"* / *"music with guitar"* queries surface meaningfully better top-1 results than current.
 
-Either result gates whether to merge or kill the branch. If audio LM doesn't measurably help on the gap queries, the chained encoders are working better than we think and the right move is the *Voxtral 3B video-level audio-summary* path instead (recommendation #2 from the original analysis).
+## Smoke-test outcome (2026-06-03)
+
+Smoke-tested both candidate backends against five known snowsports clips (helmet/speech, wind+climber-call, scenic, quiet ridge, skis-on-snow). Neither was usable:
+
+### MOSS-Audio 4B Instruct — blocked on Hub packaging
+
+`OpenMOSS-Team/MOSS-Audio-4B-Instruct` ships `configuration_moss_audio.py` and `processing_moss_audio.py` in the Hub snapshot, but **not `modeling_moss_audio.py`** (only exists in their GitHub repo). The model's `auto_map` only registers AutoConfig + AutoProcessor — no AutoModel. Result: `AutoModel*.from_pretrained` can't instantiate.
+
+Workarounds, neither taken: (a) clone OpenMOSS/MOSS-Audio and put `src/` on PYTHONPATH; (b) vendor `modeling_moss_audio.py` + `audio_io.py` into `src/ten/_vendor/moss_audio/`. Both pull in their full dependency tree. The right fix is upstream — wait for them to either land `modeling_moss_audio.py` in the snapshot or add an AutoModel entry to `auto_map`. MOSS-Audio is architecturally the right call (Qwen3 backbone aligns with the rest of ten; audio captioning is its primary capability per the model card) and remains the recommended backend once their packaging is clean.
+
+### Voxtral 3B — wrong model for the use case
+
+`mistralai/Voxtral-Mini-3B-2507` loads cleanly via the official `VoxtralForConditionalGeneration` class. Transcription quality on snowsports clips is comparable to Whisper-large-v3 — fine but no improvement. The caption path is the problem: Voxtral 3B is positioned as transcription + voice-assistant (function calling from voice, Q&A over user-supplied audio), not as an "describe this acoustic scene" model.
+
+Caption smoke against five known clips:
+
+| prompt | t=18 (real speech) | t=99 (wind+climber) | t=153 (scenic) | t=558 (quiet ridge) | t=603 (skis-on-snow) |
+|---|---|---|---|---|---|
+| Loose prompt | "monologue" | "monologue with pauses" | **"monologue with traffic sounds"** ❌ | "monologue" | "monologue" |
+| Tight prompt | "dominant sound is speech" | "dominant sound is speech" | "dominant sound is environmental" | "dominant sound is environmental/silence" | "dominant sound is environmental/silence" |
+
+Loose prompts default to "monologue" on non-speech content. Tight prompts produce stripped category labels rather than acoustic descriptions ("wind across snow", "skis cutting ice") — the model doesn't have the fine-grained acoustic-description capability the architecture relies on. Indexing every clip with `"monologue"` or `"environmental"` would actively pollute `ten_text` clustering — strictly worse than the current Whisper+CLAP+VAD state where non-speech clips correctly return empty transcripts.
+
+### Verdict
+
+The architectural pattern (single audio LM producing transcript + caption into the text channel) is sound. The model layer isn't there yet on usable open-weight options.
+
+**Next steps**, in priority order:
+
+1. **Vendor MOSS-Audio's modeling file** when ready to invest ~60 min: copy `src/modeling_moss_audio.py` + `src/audio_io.py` from the OpenMOSS GitHub repo into `src/ten/_vendor/moss_audio/`, register them via `auto_map`, retry the smoke. Their model card frames audio captioning as a primary capability, so the caption quality should be qualitatively different from Voxtral's.
+2. **Skip the per-clip audio LM** and try the alternative recommendation: **Voxtral 24B (or MOSS-Audio 8B) as a video-level audio-summary pass**. Voxtral's strength is long-form Q&A (32k context = 30 min audio), not per-10s-clip acoustic description. A separate per-video pass that emits one summary sentence per video might land better than per-clip captions for either model. This closes effect-1 of the Marengo gap (clip-level captioning misses video-level gestalt) rather than effect-2.
+3. **Accept that the open-weight audio LM ecosystem isn't ready yet** and double down on a different EVAL.md recommendation — query-routing CLAP from reranker to peer source when audio cues are detected. Smaller architectural change, partial credit, available today.

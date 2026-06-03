@@ -100,8 +100,8 @@ index-full: ## Ingest with vLLM + ASR (VAD-gated) + CLAP — all signals on (FOL
 	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_VAD_BACKEND=silero TEN_CLAP_BACKEND=clap \
 	  uv run ten index $(FOLDER) --asr --vad --clap
 
-index-audio-lm: ## Ingest with vLLM + Audio LM (MOSS-Audio) — replaces ASR+CLAP+VAD (FOLDER=...)
-	TEN_VLM_BACKEND=vllm TEN_AUDIO_LM_BACKEND=moss \
+index-audio-lm: ## Ingest with vLLM + Audio LM (Voxtral) — replaces ASR+CLAP+VAD (FOLDER=...)
+	TEN_VLM_BACKEND=vllm TEN_AUDIO_LM_BACKEND=voxtral \
 	  uv run ten index $(FOLDER) --audio-lm
 
 reindex: ## Re-embed every clip in FOLDER, ignoring existing ids

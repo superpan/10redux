@@ -66,9 +66,17 @@ class Config:
     # When TEN_AUDIO_LM_BACKEND is set, ingest bypasses ASR/CLAP/VAD entirely.
     audio_lm_backend: str = field(default_factory=lambda: _env("TEN_AUDIO_LM_BACKEND", "none"))
     audio_lm_model: str = field(
-        default_factory=lambda: _env("TEN_AUDIO_LM_MODEL", "OpenMOSS-Team/MOSS-Audio-4B-Instruct")
+        default_factory=lambda: _env("TEN_AUDIO_LM_MODEL", "mistralai/Voxtral-Mini-3B-2507")
     )
     audio_lm_max_new_tokens: int = int(_env("TEN_AUDIO_LM_MAX_NEW_TOKENS", "256"))
+    # Voxtral's apply_transcription_request takes an explicit language code or
+    # None for auto-detect. Pass "en", "es", etc. to lock to one language.
+    audio_lm_transcribe_language: str | None = field(
+        default_factory=lambda: os.environ.get("TEN_AUDIO_LM_TRANSCRIBE_LANGUAGE") or None
+    )
+    # Prompt for the audio-caption pass (Voxtral chat template). Voxtral's
+    # transcribe path uses a dedicated helper, so a separate transcribe_prompt
+    # isn't needed for the default backend.
     audio_lm_transcribe_prompt: str = field(
         default_factory=lambda: _env(
             "TEN_AUDIO_LM_TRANSCRIBE_PROMPT",
@@ -82,11 +90,12 @@ class Config:
         default_factory=lambda: _env(
             "TEN_AUDIO_LM_CAPTION_PROMPT",
             (
-                "In one factual sentence, describe the audio content: the "
-                "speech style (monologue, conversation, singing), any music, "
-                "and any prominent ambient or environmental sounds. Do NOT "
-                "transcribe specific words. If the audio is silent or has "
-                "nothing notable, respond with exactly an empty string."
+                "Describe the audio content in one factual sentence. Focus on: "
+                "speech style (monologue, dialogue, singing, narration), "
+                "music style if present, and prominent ambient or environmental "
+                "sounds (wind, traffic, applause, machinery, etc.). Do not "
+                "transcribe specific spoken words. If the audio has nothing "
+                "notable, output nothing — no words, no punctuation."
             ),
         )
     )

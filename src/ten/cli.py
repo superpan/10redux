@@ -51,7 +51,7 @@ def index(
     if clap and os.environ.get("TEN_CLAP_BACKEND", "").lower() in ("", "none"):
         os.environ["TEN_CLAP_BACKEND"] = "clap"
     if audio_lm and os.environ.get("TEN_AUDIO_LM_BACKEND", "").lower() in ("", "none"):
-        os.environ["TEN_AUDIO_LM_BACKEND"] = "moss"
+        os.environ["TEN_AUDIO_LM_BACKEND"] = "voxtral"
     from .ingest import ingest_folder
 
     ingest_folder(folder.resolve(), force=force, max_videos=max_videos)
