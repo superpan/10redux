@@ -56,6 +56,41 @@ class Config:
     vad_backend: str = field(default_factory=lambda: _env("TEN_VAD_BACKEND", "none"))
     vad_min_speech_fraction: float = float(_env("TEN_VAD_MIN_SPEECH_FRACTION", "0.10"))
 
+    # Audio language model — opt-in path that replaces ASR + CLAP + VAD with a
+    # single model that both transcribes speech AND produces an abstract caption
+    # of the audio ("a woman gives a monologue", "polyphonic vocals with guitar").
+    # The audio caption is concatenated into the visual caption text before
+    # Qwen3-Embedding, so audio-cue queries hit the same text channel as the
+    # visual caption. Closes the abstract-speech-act-semantics gap measured in
+    # the TwelveLabs Marengo 3.0 baseline (see EVAL.md).
+    # When TEN_AUDIO_LM_BACKEND is set, ingest bypasses ASR/CLAP/VAD entirely.
+    audio_lm_backend: str = field(default_factory=lambda: _env("TEN_AUDIO_LM_BACKEND", "none"))
+    audio_lm_model: str = field(
+        default_factory=lambda: _env("TEN_AUDIO_LM_MODEL", "OpenMOSS-Team/MOSS-Audio-4B-Instruct")
+    )
+    audio_lm_max_new_tokens: int = int(_env("TEN_AUDIO_LM_MAX_NEW_TOKENS", "256"))
+    audio_lm_transcribe_prompt: str = field(
+        default_factory=lambda: _env(
+            "TEN_AUDIO_LM_TRANSCRIBE_PROMPT",
+            (
+                "Transcribe the speech in this audio. If there is no speech, "
+                "respond with exactly an empty string and nothing else."
+            ),
+        )
+    )
+    audio_lm_caption_prompt: str = field(
+        default_factory=lambda: _env(
+            "TEN_AUDIO_LM_CAPTION_PROMPT",
+            (
+                "In one factual sentence, describe the audio content: the "
+                "speech style (monologue, conversation, singing), any music, "
+                "and any prominent ambient or environmental sounds. Do NOT "
+                "transcribe specific words. If the audio is silent or has "
+                "nothing notable, respond with exactly an empty string."
+            ),
+        )
+    )
+
     # Reranker (off by default — opt-in via TEN_RERANKER_BACKEND=crossencoder).
     # When enabled, the bi-encoder's per_source results are re-scored by a
     # cross-encoder before the limit cut.

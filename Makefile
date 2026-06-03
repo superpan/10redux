@@ -100,6 +100,10 @@ index-full: ## Ingest with vLLM + ASR (VAD-gated) + CLAP — all signals on (FOL
 	TEN_VLM_BACKEND=vllm TEN_ASR_BACKEND=whisper TEN_VAD_BACKEND=silero TEN_CLAP_BACKEND=clap \
 	  uv run ten index $(FOLDER) --asr --vad --clap
 
+index-audio-lm: ## Ingest with vLLM + Audio LM (MOSS-Audio) — replaces ASR+CLAP+VAD (FOLDER=...)
+	TEN_VLM_BACKEND=vllm TEN_AUDIO_LM_BACKEND=moss \
+	  uv run ten index $(FOLDER) --audio-lm
+
 reindex: ## Re-embed every clip in FOLDER, ignoring existing ids
 	uv run ten index $(FOLDER) --force
 
@@ -158,6 +162,6 @@ help: ## Show this help
 .PHONY: install ui-install ffmpeg install-pc bootstrap \
         qdrant-up qdrant-down vllm-up vllm-down vllm-logs services-up services-down \
         fetch-smoke fetch-msrvtt fetch-qvhighlights eval eval-qvh eval-qvh-ablation bench ingest-msrvtt \
-        index index-vllm index-asr index-asr-vad index-clap index-full reindex smoke search status \
+        index index-vllm index-asr index-asr-vad index-clap index-full index-audio-lm reindex smoke search status \
         serve serve-reload ui-build ui-dev dev dev-ui \
         lint format clean-thumbs clean-qdrant help

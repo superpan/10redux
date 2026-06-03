@@ -19,6 +19,7 @@ from rich.progress import (
 
 from .asr import TranscriberProtocol, make_transcriber
 from .audio import extract_audio
+from .audio_lm import AudioLMProtocol, make_audio_lm
 from .caption import CaptionerProtocol, make_captioner
 from .embed_audio import (
     CLAP_SAMPLE_RATE,
@@ -60,17 +61,28 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
     video_embedder = VideoEmbedder()
     text_embedder = TextEmbedder()
     captioner = make_captioner()
-    transcriber = make_transcriber()  # None unless TEN_ASR_BACKEND is set
-    if transcriber is not None:
-        from .asr import VADGatedTranscriber  # local import to avoid cycle at module load
 
-        vad_note = " (VAD-gated)" if isinstance(transcriber, VADGatedTranscriber) else ""
+    # Audio LM (MOSS-Audio / Voxtral) — when set, *replaces* ASR + CLAP + VAD.
+    audio_lm = make_audio_lm()  # None unless TEN_AUDIO_LM_BACKEND is set
+    if audio_lm is not None:
         console.print(
-            f"[bold]ASR enabled{vad_note}[/bold] — Whisper transcripts will be appended to caption text"
+            "[bold]Audio LM enabled[/bold] — single model produces transcript + audio caption; "
+            "ASR/CLAP/VAD knobs are ignored"
         )
-    audio_embedder = make_audio_embedder()  # None unless TEN_CLAP_BACKEND is set
-    if audio_embedder is not None:
-        console.print("[bold]CLAP enabled[/bold] — audio embeddings will populate ten_audio collection")
+        transcriber: TranscriberProtocol | None = None
+        audio_embedder: AudioEmbedderProtocol | None = None
+    else:
+        transcriber = make_transcriber()  # None unless TEN_ASR_BACKEND is set
+        if transcriber is not None:
+            from .asr import VADGatedTranscriber  # local import to avoid cycle at module load
+
+            vad_note = " (VAD-gated)" if isinstance(transcriber, VADGatedTranscriber) else ""
+            console.print(
+                f"[bold]ASR enabled{vad_note}[/bold] — Whisper transcripts will be appended to caption text"
+            )
+        audio_embedder = make_audio_embedder()  # None unless TEN_CLAP_BACKEND is set
+        if audio_embedder is not None:
+            console.print("[bold]CLAP enabled[/bold] — audio embeddings will populate ten_audio collection")
     store = Store()
 
     # Sniff dims (forces model load) so we can create collections up-front.
@@ -119,7 +131,7 @@ def ingest_folder(root: Path, force: bool = False, max_videos: int | None = None
                 continue
             batch.append((clip, frames))
             if len(batch) >= CONFIG.batch_size:
-                processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, audio_embedder, store)
+                processed += _flush(batch, video_embedder, text_embedder, captioner, transcriber, audio_embedder, audio_lm, store)
                 batch.clear()
             progress.advance(task)
         if batch:
@@ -138,6 +150,7 @@ def _flush(
     captioner: CaptionerProtocol,
     transcriber: TranscriberProtocol | None,
     audio_embedder: AudioEmbedderProtocol | None,
+    audio_lm: AudioLMProtocol | None,
     store: Store,
 ) -> int:
     clips = [b[0] for b in batch]
@@ -149,55 +162,83 @@ def _flush(
     # Captions (sequential; VLM dominated by attention).
     captions = captioner.caption_batch(frames_list)
 
-    # Optional transcripts. ffmpeg pulls a 16 kHz mono wav per clip; Whisper
-    # transcribes. Empty string for clips with no audio / on extraction failure.
+    # Audio path. Two mutually exclusive routes:
+    #   (A) audio_lm  -> single model produces transcript + audio caption
+    #   (B) transcriber (+ optional CLAP, + optional VAD)  -> legacy chained encoders
     transcripts: list[str] = ["" for _ in clips]
-    if transcriber is not None:
+    audio_captions: list[str] = ["" for _ in clips]
+    audio_vecs = None
+
+    if audio_lm is not None:
+        # Route A: MOSS-Audio / Voxtral. One audio decode per clip, two prompts.
         from tempfile import TemporaryDirectory
 
-        with TemporaryDirectory(prefix="ten_asr_") as td:
+        with TemporaryDirectory(prefix="ten_audiolm_") as td:
             tmpdir = Path(td)
             for i, clip in enumerate(clips):
                 wav = tmpdir / f"{clip.clip_id}.wav"
                 try:
                     if extract_audio(clip, wav, sample_rate=16000):
-                        transcripts[i] = transcriber.transcribe(wav)
+                        transcripts[i], audio_captions[i] = audio_lm.describe(wav)
                 except Exception as e:
-                    console.print(f"[yellow]ASR failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
+                    console.print(
+                        f"[yellow]audio LM failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]"
+                    )
+    else:
+        # Route B: Whisper (+ optional VAD wrapper) for transcript.
+        if transcriber is not None:
+            from tempfile import TemporaryDirectory
 
-    # Optional CLAP audio embeddings. Need 48 kHz for LAION CLAP.
-    audio_vecs = None
-    if audio_embedder is not None:
-        from tempfile import TemporaryDirectory
+            with TemporaryDirectory(prefix="ten_asr_") as td:
+                tmpdir = Path(td)
+                for i, clip in enumerate(clips):
+                    wav = tmpdir / f"{clip.clip_id}.wav"
+                    try:
+                        if extract_audio(clip, wav, sample_rate=16000):
+                            transcripts[i] = transcriber.transcribe(wav)
+                    except Exception as e:
+                        console.print(f"[yellow]ASR failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
 
-        with TemporaryDirectory(prefix="ten_clap_") as td:
-            tmpdir = Path(td)
-            paths: list[Path] = []
-            keep: list[int] = []
-            for i, clip in enumerate(clips):
-                wav = tmpdir / f"{clip.clip_id}.wav"
-                try:
-                    if extract_audio(clip, wav, sample_rate=CLAP_SAMPLE_RATE):
-                        paths.append(wav)
-                        keep.append(i)
-                except Exception as e:
-                    console.print(f"[yellow]audio extract failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
-            if paths:
-                got = audio_embedder.embed(paths)
-                # Fill non-extracted slots with zero vectors so the upsert shape matches.
-                audio_vecs = np.zeros((len(clips), got.shape[1]), dtype=np.float32)
-                for slot, vec in zip(keep, got, strict=True):
-                    audio_vecs[slot] = vec
+        # Route B continued: CLAP audio embeddings. Need 48 kHz for LAION CLAP.
+        if audio_embedder is not None:
+            from tempfile import TemporaryDirectory
 
-    # Text embeddings: caption + transcript so retrieval picks up either signal.
+            with TemporaryDirectory(prefix="ten_clap_") as td:
+                tmpdir = Path(td)
+                paths: list[Path] = []
+                keep: list[int] = []
+                for i, clip in enumerate(clips):
+                    wav = tmpdir / f"{clip.clip_id}.wav"
+                    try:
+                        if extract_audio(clip, wav, sample_rate=CLAP_SAMPLE_RATE):
+                            paths.append(wav)
+                            keep.append(i)
+                    except Exception as e:
+                        console.print(f"[yellow]audio extract failed for {clip.video_path.name} {clip.t_start:.1f}s: {e}[/yellow]")
+                if paths:
+                    got = audio_embedder.embed(paths)
+                    # Fill non-extracted slots with zero vectors so the upsert shape matches.
+                    audio_vecs = np.zeros((len(clips), got.shape[1]), dtype=np.float32)
+                    for slot, vec in zip(keep, got, strict=True):
+                        audio_vecs[slot] = vec
+
+    # Text embeddings: visual caption + (audio caption if any) + (transcript if any).
+    # The audio caption is the new signal that closes the abstract-speech-act gap.
+    def _join(cap: str, audio_cap: str, trans: str) -> str:
+        parts = [p for p in (cap, audio_cap, trans) if p]
+        return "\n".join(parts) if parts else cap
+
     embed_inputs = [
-        f"{cap}\n{trans}" if trans else cap for cap, trans in zip(captions, transcripts, strict=True)
+        _join(cap, audio_cap, trans)
+        for cap, audio_cap, trans in zip(captions, audio_captions, transcripts, strict=True)
     ]
     text_vecs = text_embedder.embed_passages(embed_inputs)
 
     # Thumbnails + payloads.
     payloads: list[ClipPayload] = []
-    for clip, caption, transcript in zip(clips, captions, transcripts, strict=True):
+    for clip, caption, transcript, audio_caption in zip(
+        clips, captions, transcripts, audio_captions, strict=True
+    ):
         thumb = _thumb_path(clip.clip_id)
         if not thumb.exists():
             try:
@@ -216,6 +257,7 @@ def _flush(
                 thumb_path=str(thumb.resolve()),
                 transcript=transcript,
                 library=clip.video_path.resolve().parent.name,
+                audio_caption=audio_caption,
             )
         )
 

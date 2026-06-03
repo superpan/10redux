@@ -34,6 +34,12 @@ def index(
         "--clap",
         help="Enable LAION CLAP audio embeddings (third Qdrant collection: ten_audio).",
     ),
+    audio_lm: bool = typer.Option(
+        False,
+        "--audio-lm",
+        help="Use MOSS-Audio (or Voxtral) as the audio model instead of ASR+CLAP+VAD. "
+        "Produces transcript + audio caption per clip; both go into ten_text.",
+    ),
 ) -> None:
     """Walk FOLDER recursively, chunk videos, embed, and upsert to Qdrant."""
     import os
@@ -44,6 +50,8 @@ def index(
         os.environ["TEN_VAD_BACKEND"] = "silero"
     if clap and os.environ.get("TEN_CLAP_BACKEND", "").lower() in ("", "none"):
         os.environ["TEN_CLAP_BACKEND"] = "clap"
+    if audio_lm and os.environ.get("TEN_AUDIO_LM_BACKEND", "").lower() in ("", "none"):
+        os.environ["TEN_AUDIO_LM_BACKEND"] = "moss"
     from .ingest import ingest_folder
 
     ingest_folder(folder.resolve(), force=force, max_videos=max_videos)

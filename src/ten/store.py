@@ -30,6 +30,11 @@ class ClipPayload:
     thumb_path: str
     transcript: str = ""
     library: str = ""  # parent dir name; lets the UI/API scope search to one library
+    # Abstract caption of the audio content from the audio LM ("a woman gives
+    # a monologue", "instrumental music with guitar"). Empty when ASR-only path
+    # is used or no audio LM is configured. Concatenated into the embedded text
+    # at ingest time so search hits on it naturally.
+    audio_caption: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -43,6 +48,7 @@ class ClipPayload:
             "thumb_path": self.thumb_path,
             "transcript": self.transcript,
             "library": self.library,
+            "audio_caption": self.audio_caption,
         }
 
 
