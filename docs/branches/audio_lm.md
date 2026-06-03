@@ -44,20 +44,22 @@ After merge with a clean eval win, the cleanup commit should:
 
 ## How to actually run it
 
+No predownload needed — the default `TEN_AUDIO_LM_MODEL=OpenMOSS-Team/MOSS-Audio-4B-Instruct` is a HF Hub ID, and `AutoModelForCausalLM.from_pretrained` lazy-downloads to `~/.cache/huggingface/hub/` on first use. Same pattern as every other model in ten (V-JEPA, Whisper, CLAP, Qwen3-Embedding).
+
 ```bash
-# First download the model into local weights (per upstream README)
-hf download OpenMOSS-Team/MOSS-Audio-4B-Instruct \
-  --local-dir ./weights/MOSS-Audio-4B-Instruct
-
-# Point ten at it
-export TEN_AUDIO_LM_MODEL=./weights/MOSS-Audio-4B-Instruct
-
-# Smoke test on the snowsports demo (82 clips, ~10 min)
+# Smoke test on the snowsports demo (82 clips). First run downloads ~8 GB
+# of MOSS-Audio weights into ~/.cache/huggingface; subsequent runs warm-load.
 make index-audio-lm FOLDER=./videos/snowsports
 
-# Then a search where audio caption should help:
+# Then a search where the audio caption should help:
 ten search "a sustained monologue" --library snowsports
 ten search "wind whistling over mountains" --library snowsports
+```
+
+If you want to pin a specific local checkpoint (e.g., a fine-tuned MOSS variant), point `TEN_AUDIO_LM_MODEL` at the path:
+
+```bash
+export TEN_AUDIO_LM_MODEL=/path/to/my-finetune
 ```
 
 ## Eval gate before merge
